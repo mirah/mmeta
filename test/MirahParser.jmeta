@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Collections;
 
 public parser MirahParser {
     public static void main(String[] args) {
@@ -36,18 +38,24 @@ public parser MirahParser {
     ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
     start: ! prog=compstmt . end { ["Script", prog] };
     compstmt: terms* a=(s=statement terms+ {s})*
-              b=(s=statement{s}|{[]})
+              b=(s=statement{s}|{ return Collections.EMPTY_LIST; })
               {a+b};
-    terms: (";" | "\n") ";"*;
+    terms: . (";" | "\n") (. ";")*;
     statement: e=numeric;
     numeric: floatLiteral | fixnum;
-    fixnum: n=( "0"! ( oneOf("xX") d=digits(HEX)+ {return Integer.parseInt(join(d), 16);}
+    fixnum: . n=( "0"! ( oneOf("xX") d=digits(HEX)+ {return Integer.parseInt(join(d), 16);}
                     | oneOf("dD") d=digits(DECIMAL)+ {return Integer.parseInt(join(d));}
                     | oneOf("oO") d=digits(OCTAL)+ {return Integer.parseInt(join(d), 8);}
                     | oneOf("bB") d=digits(BINARY)+ {return Integer.parseInt(join(d), 2);}
-                    | d=digits(OCTAL)* {return Integer.parseInt("0" + join(d));}
+                    | d=digits(OCTAL)* {return Integer.parseInt("0" + join(d), 8);}
                     )
               | d=digits(DECIMAL)+ {return Integer.parseInt(join(d));}
               ) {["Fixnum", n]};
-    floatLiteral: f=(a=digit+ "." b=digit+ {a+["."]+b}) {return Double.parseDouble(join(f));};
+    floatLiteral: . f=(i=digits(DECIMAL)+
+                       f=("." digits(DECIMAL)+ | { return Collections.EMPTY_LIST; })
+                       e=(oneOf("eE") digits(DECIMAL)+ | { return Collections.EMPTY_LIST; })
+                       ?{return ((List)f).size() + ((List)e).size() > 0;}
+                       s={i+["."]+f+["E"]+e}
+                       {return Double.parseDouble(join(s));}
+                      ) {["Float", f]};
 }
