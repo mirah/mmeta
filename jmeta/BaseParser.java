@@ -396,21 +396,21 @@ public class BaseParser {
                 Object na = Arrays.copyOf(la, la.length + ra.length);
                 System.arraycopy(rs, 0, na, la.length, ra.length);
                 return na;
-            } else if (rs instanceof ArrayList) {
-                ArrayList ra = (ArrayList<?>) rs;
+            } else if (rs instanceof List) {
+                List ra = (List<?>) rs;
                 Object[] na = Arrays.copyOf(la, la.length + ra.size());
                 for (int i = 0; i < ra.size(); i++) na[la.length + i] = ra.get(i);
                 return na;
             }
-        } else if (ls instanceof ArrayList) {
-            ArrayList<?> la = (ArrayList<?>) ls;
+        } else if (ls instanceof List) {
+            List<?> la = (List<?>) ls;
             if (rs instanceof Object[]) {
                 Object[] ra = (Object[]) rs;
                 ArrayList na = new ArrayList(la);
                 na.addAll(Arrays.asList(ra));
                 return na;
-            } else if (rs instanceof ArrayList) {
-                ArrayList ra = (ArrayList<?>) rs;
+            } else if (rs instanceof List) {
+                List ra = (List<?>) rs;
                 ArrayList na = new ArrayList(la);
                 na.addAll(ra);
                 return na;
