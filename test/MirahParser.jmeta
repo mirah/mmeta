@@ -1,0 +1,53 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+
+public parser MirahParser {
+    public static void main(String[] args) {
+        MirahParser parser = new MirahParser();
+        parser.tracing = true;
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        char[] buffer = new char[8192];
+        StringBuilder builder = new StringBuilder();
+        int read;
+        try {
+          while ((read = reader.read(buffer, 0, buffer.length)) > 0) {
+            builder.append(buffer, 0, read);
+          }
+        } catch (Exception ex) {
+          throw new RuntimeException(ex);
+        }
+        System.out.println(print_r(parser.parse(builder.toString())));
+    }
+
+    public Object oneOf() {
+      String chars = (String)_pop();
+      return _char(chars);
+    }
+
+    private final String HEX = "0123456789abcdefABCDEF";
+    private final String DECIMAL = "0123456789";
+    private final String OCTAL = "01234567";
+    private final String BINARY = "01";
+
+
+    digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
+                                 d={[a] + b} {return join(d);};
+    ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
+    start: ! prog=compstmt . end { ["Script", prog] };
+    compstmt: terms* a=(s=statement terms+ {s})*
+              b=(s=statement{s}|{[]})
+              {a+b};
+    terms: (";" | "\n") ";"*;
+    statement: e=numeric;
+    numeric: floatLiteral | fixnum;
+    fixnum: n=( "0"! ( oneOf("xX") d=digits(HEX)+ {return Integer.parseInt(join(d), 16);}
+                    | oneOf("dD") d=digits(DECIMAL)+ {return Integer.parseInt(join(d));}
+                    | oneOf("oO") d=digits(OCTAL)+ {return Integer.parseInt(join(d), 8);}
+                    | oneOf("bB") d=digits(BINARY)+ {return Integer.parseInt(join(d), 2);}
+                    | d=digits(OCTAL)* {return Integer.parseInt("0" + join(d));}
+                    )
+              | d=digits(DECIMAL)+ {return Integer.parseInt(join(d));}
+              ) {["Fixnum", n]};
+    floatLiteral: f=(a=digit+ "." b=digit+ {a+["."]+b}) {return Double.parseDouble(join(f));};
+}
