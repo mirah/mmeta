@@ -206,7 +206,7 @@ public class BaseParser {
     public Object start() { throw new IllegalStateException("provide a rule called 'start'"); }
 
     public void _push(Object... as) { for (int i = as.length - 1; i >= 0; i--) args.push(as[i]); }
-    Object _pop() { return args.pop(); }
+    public Object _pop() { return args.pop(); }
 
     /// rule that requires a Symbol and runs the corresponding rule
     public Object apply() {
@@ -382,7 +382,7 @@ public class BaseParser {
                 sb.append(o.toString());
             }
         } else {
-            throw new IllegalArgumentException("'join' must receive a ArrayList or Object[]");
+            throw new IllegalArgumentException("'join' must receive a ArrayList or Object[]. Got " + ls.getClass().getName());
         }
         return sb.toString();
     }
@@ -407,7 +407,7 @@ public class BaseParser {
             if (rs instanceof Object[]) {
                 Object[] ra = (Object[]) rs;
                 ArrayList na = new ArrayList(la);
-                for (int i = 0; i < ra.length; i++) na.set(la.size() + i, ra[i]);
+                na.addAll(Arrays.asList(ra));
                 return na;
             } else if (rs instanceof ArrayList) {
                 ArrayList ra = (ArrayList<?>) rs;
@@ -417,7 +417,7 @@ public class BaseParser {
             }
          }
 
-        throw new IllegalArgumentException("'concat' must receive two ArrayLists or Object[]s");
+        throw new IllegalArgumentException("'concat' must receive two ArrayLists or Object[]s. Got " + ls.getClass().getName() + " and " + rs.getClass().getName());
     }
 
     public Object _listBegin() {
