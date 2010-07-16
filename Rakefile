@@ -1,78 +1,72 @@
 require 'ant'
 require 'rake/testtask'
 
-RHINO='/Developer/rhino1_7R2/js.jar'
-
-def js(script)
-  ant.java :fork => true, :jar => RHINO, :failonerror => true, :dir=>Dir.pwd do
-    arg :value => script
-  end
+if File.exist?('../duby/lib/mirah_task.rb')
+  $: << '../duby/lib'
 end
 
-task :default => :test
+require 'mirah_task'
 
-directory 'dist'
-directory 'build/test'
-directory 'build/jmeta'
+task :default => :test
+task :jar => 'dist/mmeta.jar'
 
 task :clean do
   ant.delete :quiet => true, :dir => 'build'
   ant.delete :quiet => true, :dir => 'dist'
 end
 
-file "build/boot/jmetaparser.js" => Dir.glob('boot/jmeta*.txt') + ['build/jmeta'] do
-  cp_r 'boot', 'build/'
-  chdir('build/boot') do
-    js('boot.js')
-  end
+task :bootstrap => ['dist/mmeta.jar'] do
+  runjava 'dist/jmeta.jar', 'boot/JMetaParser'
+  runjava 'dist/jmeta.jar', 'boot/JMetaCompiler'
+  runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
-rule(%r(build/jmeta/.+\.java$) => [
-    "build/boot/jmetaparser.js",
-    proc {|n| n.sub(/\.java$/, '.jmeta').sub(%r(^build/jmeta), 'boot')}]) do |n|
-  n.name =~ %r(/(JMeta.+)\.java)
-  name = $1
-  cp "boot/#{name}.jmeta", 'build/boot'
-  chdir 'build/boot' do
-    js("boot-#{name.downcase}.js")
-  end
+file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.java') + ['build/runtime', 'dist'] do
+  ant.javac :srcDir=>'jmeta', :destDir=>'build/runtime', :debug=>true
+  ant.jar :destfile=>'dist/jmeta-runtime.jar', :basedir=>'build/runtime'
 end
 
-file 'build/jmeta/JMetaParser.class' => ["build/jmeta/JMetaParser.java",
-                                         "build/jmeta/JMetaCompiler.java"] +
-                                        Dir.glob('jmeta/*.java') do
-  ant.javac :srcDir=>'jmeta', :destDir => 'build', :debug=>true
-  ant.javac :srcDir=>'build/jmeta', :destDir => 'build', :debug=>true
-end
-
-task :depend do
-  ant.depend :srcDir => '.', :destDir => 'build', :cache => 'build/depcache'
-end
-
-task :compile => [:depend, 'build/jmeta/JMetaParser.class']
-
-file 'dist/jmeta.jar' => ['build/jmeta/JMetaParser.class', 'build/jmeta/JMetaCompiler.class', 'dist'] do
-  ant.jar :destfile=>'dist/jmeta.jar', :basedir=>'build', :includes=>'jmeta/*.class' do
+file 'dist/jmeta.jar' => ['dist/jmeta-runtime.jar',
+                          'boot/JMetaParser.java',
+                          'boot/JMetaCompiler.java',
+                          'build/boot/jmeta'] do
+  cp 'boot/JMetaParser.java', 'build/boot/jmeta/'
+  cp 'boot/JMetaCompiler.java', 'build/boot/jmeta/'
+  ant.javac :srcDir => 'build/boot', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
+  ant.jar :destfile=>'dist/jmeta.jar' do
+    fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
+    fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
     manifest do
       attribute :name=>"Main-Class", :value=>"jmeta.JMetaParser"
     end
   end
-  ant.jar :destfile=>'dist/jmeta-runtime.jar', :basedir=>'build',
-      :includes=>'jmeta/*.class', :excludes=>'jmeta/JMeta*.class,jmeta/Utils.class'
 end
 
-task :jar => [:compile, 'dist/jmeta.jar']
+file 'dist/mmeta.jar' => ['dist/jmeta.jar',
+                          'boot/mirah_compiler.mirah'] do
+  cp 'boot/mirah_compiler.mirah', 'build/boot/jmeta/'
+  mirahc('jmeta/mirah_compiler.mirah',
+         :dir => 'build/boot',
+         :dest => 'build/boot',
+         :options => ['--classpath', 'dist/jmeta.jar'])
+  ant.jar :destfile=>'dist/mmeta.jar' do
+    fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
+    fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
+    manifest do
+      attribute :name=>"Main-Class", :value=>"jmeta.MMetaCompiler"
+    end
+  end
+end
 
 namespace :test do
-  task :compile => [:jar] do
+  task :compile => ['dist/mmeta.jar', 'build/test'] do
+    cp_r 'test', 'build/test'
     ant.javac :srcDir => 'build/test', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
+    mirahc 'test', :dir=>'build', :options=>['--classpath', 'dist/jmeta-runtime.jar']
   end
   task :calc => :'test:compile' do
-    ant.java :fork=> true, :outputproperty=>'test.output',
-             :classpath=>'dist/jmeta-runtime.jar:build/test',
-             :classname=>'Calculator', :failonerror=>true  do
-      arg :value=>"4 * 3 - 2"
-    end
+    runjava('Calculator', '4 * 3 - 2', :outputproperty=>'test.output',
+            :classpath=>'dist/jmeta-runtime.jar:build/test')
     if ant.properties['test.output'].to_s.strip == '10'
       puts "Calculator passed"
     else
@@ -91,10 +85,38 @@ Dir.glob('test/*.jmeta').each do |f|
   task(:'test:compile').enhance ["build/test/#{name}.java"]
   file "build/test/#{name}.java" => [f, 'dist/jmeta.jar', 'build/test'] do
     cp "test/#{name}.jmeta", "build/test/"
-    ant.java :fork => true, :jar => 'dist/jmeta.jar', :failonerror => true do
-      arg :value => "build/test/#{name}"
-    end
+    runjava 'dist/jmeta.jar', "build/test/#{name}"
+  end
+end
+
+Dir.glob('test/*.mmeta').each do |f|
+  name = File.basename(f, '.mmeta')
+  task(:'test:compile').enhance ["build/test/#{name}.mirah"]
+  file "build/test/#{name}.mirah" => [f, 'dist/mmeta.jar', 'build/test'] do
+    cp "test/#{name}.mmeta", "build/test/"
+    runjava 'dist/mmeta.jar', "build/test/#{name}.mmeta", "build/test/#{name}.mirah"
   end
 end
 
 task :test => [:'test:calc', :'test:mirah']
+
+directory 'dist'
+directory 'build/test'
+directory 'build/jmeta'
+directory 'build/runtime'
+directory 'build/boot/jmeta'
+
+def runjava(jar, *args)
+  options = {:failonerror => true, :fork => true}
+  if jar =~ /\.jar$/
+    options[:jar] = jar
+  else
+    options[:classname] = jar
+  end
+  options.merge!(args.pop) if args[-1].kind_of?(Hash)
+  ant.java options do
+    args.each do |value|
+      arg :value => value
+    end
+  end
+end
