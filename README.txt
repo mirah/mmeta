@@ -1,13 +1,16 @@
-# JMeta
+# MMeta
 
-JMeta is a parser creating tool for java. It creates Packrat type parsers, als known as PEGs or backtracking parsers. JMeta is heavily inspired by OMeta. See also:
+MMeta is a parser generator tool for Mirah. It creates Packrat type parsers,
+also known as PEGs or backtracking parsers. MMeta is heavily inspired by OMeta
+and JMeta.
+See also:
 * http://en.wikipedia.org/wiki/Parsing_expression_grammar
 * http://pdos.csail.mit.edu/~baford/packrat/
 * http://tinlizzie.org/ometa/
 
 
 ## Important features:
-* Mix and match java with your parsers.
+* Mix and match Mirah with your parsers.
 * Error annotation to allow good error reporting.
 * Inherit parsers to extend them (from OMeta).
 * Semantic actions, using java or a shorthand notation.
@@ -17,7 +20,7 @@ JMeta is a parser creating tool for java. It creates Packrat type parsers, als k
 
 
 ## Installation
-Compile with `make` install with `make install`. Requires java 1.5 or higher. To bootstrap it uses js-meta, and rhino.
+Compile with `jruby -S rake`. Requires java 1.5 or higher.
 
 TODO: fix position in line/char.
 TODO: forbid rules names using java keywords, or build-in rules that should not be overridden.
