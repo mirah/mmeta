@@ -75,9 +75,13 @@ public class BaseParser {
 
     /// Object indicating a parsing error
     public static final ErrorObject ERROR = new ErrorObject();
+    public ErrorObject __ERROR__() { return BaseParser.ERROR; }
     public final Object LEFT_REC   = new Object() { public String toString() { return "LEFT_REC"; }};
+    public Object __LEFT_REC__() { return LEFT_REC; }
     public final Object GROW       = new Object() { public String toString() { return "GROW"; }};
+    public Object __GROW__() { return GROW; }
     public final Memoize NOT_MEMOIZED     = new Memoize(null, -1)  { public String toString() { return "not memoized"; }};
+    public Memoize __NOT_MEMOIZED__() { return NOT_MEMOIZED; }
 
     ArrayDeque<Object> args;
     State _stack = null;
@@ -85,8 +89,14 @@ public class BaseParser {
     ArrayDeque<HashSet<String>> _lefts;
 
     public int _pos = 0;
+    public int _pos() { return _pos; }
+    public void _pos_set(int pos) { _pos = pos; }
     public String _string;
+    public String _string() { return _string; }
+    public void _string_set(String string) { _string = string; }
     public Object[] _list;
+    public Object[] _list() { return _list; }
+    public void _list_set(Object[] list) { _list = list; }
 
     public Object _memoize(String s, int p, Object o) {
         HashMap<String, Memoize> map = _positions.get(p);
@@ -293,6 +303,10 @@ public class BaseParser {
         if (_peek() == ERROR) return null; else { ERROR.last = "end of input"; return ERROR; }
     }
 
+    public Object __end__() {
+      return end();
+    }
+
     /// '.' parses as much whitespace as possible, override the default `ws: nl | sp;` rule to define the whitespace
     public Object ws() {
         if (_string == null)
@@ -365,10 +379,10 @@ public class BaseParser {
         return _charRange('A', 'Z');
     }
 
-    public static String join(Object ls) { return join(ls, ""); }
+    public String join(Object ls) { return join(ls, ""); }
 
     /// helper that folds an Array or ArrayList into a single string (using toString())
-    public static String join(Object ls, String sep) {
+    public String join(Object ls, String sep) {
         StringBuilder sb = new StringBuilder();
         boolean first = true;
         if (ls instanceof Object[]) {
@@ -381,14 +395,14 @@ public class BaseParser {
                 if (first) first = false; else sb.append(sep);
                 sb.append(o.toString());
             }
-        } else {
+        } else if (ls != null ){
             throw new IllegalArgumentException("'join' must receive a ArrayList or Object[]. Got " + ls.getClass().getName());
         }
         return sb.toString();
     }
 
     // helper that concatenates two Arrays or ArrayLists together
-    public static Object concat(Object ls, Object rs) {
+    public Object concat(Object ls, Object rs) {
         if (ls instanceof Object[]) {
             Object[] la = (Object[]) ls;
             if (rs instanceof Object[]) {

@@ -2,13 +2,7 @@
 package jmeta;
 import java.util.*;
 
-final class DoError {
-    String msg = null;
-    public DoError(Object m) { msg = (String)m; }
-    public String message() { return msg; }
-}
-
-public parser JMetaCompiler {
+public parser MMetaCompiler2 {
     public Object jpackage = null;
     public boolean embedded = false;
     public ArrayList locals  = new ArrayList();
@@ -27,17 +21,41 @@ public parser JMetaCompiler {
         if (! locals.contains(s)) locals.add(s);
     }
     public String localsAsArgs() {
-        if (locals.size() == 0) return "";
-        return "Object "+ join(locals, ", Object ");
+        return localsAsCall();
     }
     public String localsAsCall() {
         return join(locals, ",");
     }
     public String localsAsInit() {
-        if (locals.size() == 0) return "";
-        String res = "Object "+ join(locals, "=null; Object ") + "=null;";
-        locals.clear();
-        return res;
+      if (locals.size() == 0) return "";
+      String res = join(locals, " = ") + " = Object(nil)\n";
+      locals.clear();
+      return res;
+    }
+
+    public static void main(String[] args) {
+        boolean embed = false;
+        if (args.length < 1) {
+            System.out.println("JMetaParser <input> [--embed]");
+            System.exit(2);
+        }
+        if (args.length > 1 && args[1].equals("--embed")) {
+            embed = true;
+        }
+        try {
+            String input = Utils.readFile(args[0]);
+            MMetaCompiler2 compiler = new MMetaCompiler2(); compiler.embedded = embed;
+            JMetaParser parser = new JMetaParser();
+            //parser.tracing = true;
+            String output = (String) compiler.parse(parser.parse(input));
+            Utils.writeFile(args[0]+".mirah", output);
+            System.exit(0);
+        } catch (SyntaxError ex) {
+            ex.printStackTrace();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        System.exit(1);
     }
 
     public String w(Object... as) {
@@ -57,7 +75,7 @@ public parser JMetaCompiler {
     trans: [ r=destruct ]             { r } ;
 
     HList ls=trans* { return w(
-        "new Object[] {", join(ls, ", "), "}"
+        "[", join(ls, ", "), "]"
     ); };
     HConcat l=trans r=trans { return w(
         "concat(", l, ",", r, ")"
@@ -83,16 +101,18 @@ public parser JMetaCompiler {
     ); };
 
 
-    App 'super rule=_ args=trans+ { return w(
-        "_push(", join(args, ", "), "); _t=super.", rule, "();"
+    App :super rule=_ args=trans+ { return w(
+        "_push(ArrayList.new([", join(args, ", "), "]).toArray); _t=super();"
     ); };
-    App 'super rule=_ { return w(
-        "_t=super.", rule, "();"
+    App :super rule=_ { return w(
+        "_t=super();"
     ); };
-    App rule=_ args=trans+ {return w(
-        "_push(", join(args, ", "), "); _t=", rule, "();"
+    App rule=_ args=trans+ { return w(
+        "_push(ArrayList.new([", join(args, ", "), "]).toArray); _t=", rule, "();"
     ); };
-    App rule=_ { return w(
+    App rule=_ {
+      if ("end".equals(rule)) {rule = "__end__";}
+      return w(
         "_t=", rule, "();"
     ); };
 
@@ -102,31 +122,24 @@ public parser JMetaCompiler {
     ); };
     Act expr=_ {
         String var = genvar();
-        methods.add(w(
-            "Object __act", var, "(", localsAsArgs(), "){", expr, "}\n"
-        ));
         return w(
-            "_t=__act", var, "(", localsAsCall(), ");"
+            "_t=(", expr, ");"
         );
     };
     Pred expr=_ {
-        String var = genvar();
-        methods.add(w(
-            "boolean __pred", var, "(", localsAsArgs(), "){", expr, "}\n"
-        ));
         return w(
-            "if (!__pred", var, "(", localsAsCall(), ")) _t=ERROR;"
+            "_t = __ERROR__ unless (", expr, ");"
         );
     };
 
 
     Or indent xs=(x=trans { return w(
         _, x, "\n",
-        _, "if (_t!=ERROR) break;\n"
+        _, "break unless _t == __ERROR__\n"
     ); })* outdent { return w(
-        "_t=ERROR; do{ //or\n",
+        "_t=__ERROR__; begin  # or\n",
         join(xs, "\n"),
-        _, "} while(false);"
+        _, "end while false\n"
     ); };
 
 
@@ -135,22 +148,22 @@ public parser JMetaCompiler {
         String err = null;
         Object[] xs = ((ArrayList) ts).toArray();
         String b = w(
-            "{ int _p", var, "=_pos; _t=ERROR; do { //and\n"
+            "begin; _p", var, "=_pos; _t=__ERROR__; begin  # and\n"
         );
         for (int i = 0; i < xs.length; i++) {
             Object x = xs[i];
             if (x instanceof DoError) { err = ((DoError)x).msg; continue; }
             if (err != null) { b = w(b,
                 _, x, "\n",
-                _, "if (_t==ERROR) throw new SyntaxError(\"", err, "\", _pos, _string, _list);\n"
+                _, "raise SyntaxError.new(\"", err, "\", _pos, _string, _list) if _t == __ERROR__\n"
             ); } else { b = w(b,
                 _, x, "\n",
-                _, "if (_t==ERROR) break;\n"
+                _, "break if _t == __ERROR__\n"
             ); }
         }
         outdent();
         return w(b,
-            _, "} while(false); if (_t==ERROR) _pos=_p", var, "; }"
+            _, "end while false; self._pos=_p", var, " if (_t==__ERROR__); end\n"
         );
     };
     And { return w(
@@ -161,23 +174,23 @@ public parser JMetaCompiler {
         String var = genvar();
         String b = "";
         b = w(b,
-            "java.util.ArrayList<Object> as", var, "=new java.util.ArrayList<Object>();\n"
+            "as", var, " = ArrayList.new\n"
         );
         if (many1) { b = w(b,
             _, x, "\n",
-            _, "if (_t!=ERROR) { as", var, ".add(_t);\n"
-        ); indent();}
+            _, "if (_t!=__ERROR__)\n", indent(), "as", var, ".add(_t)\n"
+        );}
 
         b = w(b,
-            _, "while (true) { //many\n",
+            _, "while true  # many\n",
             _, x, "\n",
-            _, "if (_t==ERROR) break; else as", var, ".add(_t);\n",
-            _, "} _t=as", var, ";"
+            _, "if (_t==__ERROR__); break; else as", var, ".add(_t);nil;end\n",
+            _, "end; _t=as", var, "\n"
         );
 
         if (many1) { outdent(); b= w(b,
             "\n",
-            _, "}"
+            _, "end\n"
         );};
         return b;
     }
@@ -186,65 +199,64 @@ public parser JMetaCompiler {
 
     Opt indent x=trans outdent { return w(
         _, x, "\n",
-        _, "if (_t==ERROR) if (_string != null) { _t=\"\"; } else { _t=null; }"
+        _, "_t = (_string != null ? '' : nil) if (_t == __ERROR__)"
     ); };
 
     Not x=trans { return w(
         _, x, "\n",
-        _, "if (_t==ERROR) { _t=true; } else { _t=ERROR; }"
+        _, "_t = (_t==__ERROR__) ? Boolean.valueOf(true) : _t=__ERROR__\n"
     );};
 
     Peek x=trans { String var = genvar(); return w(
-        "{ int _l", var, "=_pos;\n",
+        "begin; _l", var, "=_pos\n",
         _, x, "\n",
-        _, "if (_t!=ERROR) { _pos=_l", var, "; }}"
+        _, "self._pos=_l", var, "if (_t!=__ERROR__);end;"
     );};
 
     List indent x=trans outdent { return w(
-        "_t=_listBegin(); if (_t!=ERROR) {\n",
+        "_t=_listBegin(); if (_t!=__ERROR__)\n",
         _, "  ", x, "\n",
-        _, "_listEnd(); }"
+        _, "_listEnd(); end;"
     );};
 
     Rule n=_ b=trans { rules.add(n); return w(
         "\n",
-        "  public Object ", n, "() { Object _t=null; int _start=_pos;\n",
-        "    _t=_retrieve(\"", name, "\"+\".\"+\"", n, "\"); if (_t!=NOT_MEMOIZED) return _t;\n",
+        "  def ", n, "\n    _t=Object(nil); _start=_pos;\n",
+        "    _t=_retrieve(\"", name, ".", n, "\"); return _t if (_t!=__NOT_MEMOIZED__)\n",
         "    ", localsAsInit(),
-        "    do {\n",
+        "    begin\n",
         "    ", b, "\n",
-        "    _t=_memoize(\"", name, "\"+\".\"+\"", n, "\", _start, _t);\n",
-        "    } while (_t==GROW); if (_t==ERROR) ERROR.last=\"", n, "\"; return _t;\n",
-        "  }"
+        "    _t=_memoize(\"", name, ".", n, "\", _start, _t);\n",
+        "    end while (_t==__GROW__); __ERROR__.last=\"", n, "\" if (_t==__ERROR__); return _t;\n",
+        "  end\n"
     );};
 
     Parser p=_ n=_ s=_ { name = (String)n; sname = (String)s; return null; } xs=trans* {
         String b = "\n";
         b = w(b,
-            p, " class ", name, " extends ", sname, " {",
+            "class ", name, " < ", sname, "\n",
             join(xs), "\n",
             join(methods), "\n",
-
-            "  public Object _jump(String r) {\n"
+            "  def _jump(r:string)\n"
         );
 
         for (Object r : rules) { b = w(b,
-            "    if (r==\"", r, "\") return ", r, "();\n"
+            "    return ", r, "() if (r==\"", r, "\")\n"
         );}
         b = w(b,
-            "    return super._jump(r);\n",
-            "  }\n",
+            "    super(r)\n",
+            "  end\n",
 
-            "  public boolean _has(String r) {\n"
+            "  def _has(r:String)\n"
         );
         for (Object r : rules) { b = w(b,
-            "    if (r==\"", r, "\") return true;\n"
+            "    return true if r==\"", r, "\"\n"
         );}
         b = w(b,
-            "    return super._has(r);\n",
-            "  }\n",
+            "    super(r)\n",
+            "  end\n",
 
-            "}\n"
+            "end\n"
         );
         reset();
         return b;
@@ -258,9 +270,10 @@ public parser JMetaCompiler {
     Line  ws=_ x=trans { return w(ws, x); } ;
 
     File  xs=trans* { return w(
-        (jpackage != null)?(jpackage+"\n"):"",
-        "// generated by jmeta on ", new Date(), "\n",
-        "// do not modify, instead edit original .jmeta file\n",
+        "# generated by jmeta on ", new Date(), "\n",
+        "# do not modify, instead edit original .jmeta file\n",
+        "import java.util.ArrayList\n",
+        "import java.util.Date\n",
         (!embedded)?"import jmeta.*;\n":"",
         join(xs));
     } ;

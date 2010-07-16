@@ -15,7 +15,9 @@ public parser JMetaParser {
         try {
             String input = Utils.readFile(args[0]+".jmeta");
             JMetaCompiler compiler = new JMetaCompiler(); compiler.embedded = embed;
-            String output = (String) compiler.parse(new JMetaParser().parse(input));
+            JMetaParser parser = new JMetaParser();
+            //parser.tracing = true;
+            String output = (String) compiler.parse(parser.parse(input));
             Utils.writeFile(args[0]+".java", output);
             System.exit(0);
         } catch (SyntaxError ex) {
@@ -32,7 +34,7 @@ public parser JMetaParser {
     }
 
     fromTo x=_ y=_: str(x) (~str(y) _)* str(y) ;
-    sp            : super.sp | fromTo("//","\n") | fromTo("/*","*/") ;
+    sp            : super.sp | fromTo("//","\n") | fromTo("/*","*/") | fromTo("#", "\n") ;
     ws            : (sp|nl)* ;
 
     listOf e=_ s=_: .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
@@ -40,7 +42,7 @@ public parser JMetaParser {
 
     nameFirst     : "_" | letter ;
     nameRest      : nameFirst | digit ;
-    name          : f=nameFirst rs=nameRest*                            { return join(concat(new Object[] {f}, rs)); } ;
+    name          : ~"def" f=nameFirst rs=nameRest*                            { return join(concat(new Object[] {f}, rs)); } ;
 
     hex      : oneOf("0123456789abcdefABCDEF");
     echar         : "\\u" u1=hex u2=hex u3=hex u4=hex                   { return (char)Integer.parseInt(""+u1+u2+u3+u4, 16); }
@@ -54,7 +56,7 @@ public parser JMetaParser {
 
     string        : s=tsString                                          { ['Str, s] } ;
     number        : sign=("-"|"+"|empty) ds=digit+                      { return new Object[] {"HLit", ""+ sign + join(ds)}; } ;
-    symbol        : "'"! s=name                                         { ['Sym, s] } ;
+    symbol        : ("'"!|":") s=name                                 { ['Sym, s] } ;
     k keyword=_   : str(keyword) ~(nameFirst|digit)                     { keyword } ;
 
     error         : "!" msg=(dollarstring|empty)                        { ['Error, msg] } ;
@@ -111,7 +113,13 @@ public parser JMetaParser {
     {
         String body = ""+ q +" "+ r +" "+ n +"("+ join(as) +") {"+ join(bs) +"}";
         return new Object[] {"Method", body };
-    } ;
+    }
+              | "def" . s=("self." | {""}) n=name (."(" as=(~")" _)* ")"| {""}) ."{" bs=cbraces* "}"
+    {
+        String body = "def " + s + n + "("+ join(as) +");" + join(bs) + ";end";
+        return new Object[] {"Method", body};
+    }
+    ;
     field     : q=qualifiers . t=name . n=name ."=" ! xs=(~";" _)* ";"
     {
         String body = ""+ q +" "+ t +" "+ n +" = "+ join(xs) +";";
