@@ -1,11 +1,11 @@
 require 'test/unit'
 require 'java'
 
-$CLASSPATH << 'dist/jmeta-runtime.jar' << 'build/test'
+$CLASSPATH << 'dist/jmeta-runtime.jar' << 'build'
 
 class TestParsing < Test::Unit::TestCase
   java_import 'jmeta.SyntaxError'
-  java_import 'MirahParser'
+  java_import 'test.MirahParser'
 
   def parse(text)
     MirahParser.print_r(MirahParser.new.parse(text))

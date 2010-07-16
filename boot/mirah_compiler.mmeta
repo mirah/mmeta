@@ -57,6 +57,7 @@ public parser MMetaCompiler {
         join(@locals, ",")
     }
     def localsAsInit {
+      return '' if @locals.size == 0
       res = join(@locals, " = ") + " = Object(nil)\n"
       @locals.clear
       res

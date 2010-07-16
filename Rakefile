@@ -60,17 +60,26 @@ end
 
 namespace :test do
   task :compile => ['dist/mmeta.jar', 'build/test'] do
-    cp_r 'test', 'build/test'
     ant.javac :srcDir => 'build/test', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
-    mirahc 'test', :dir=>'build', :options=>['--classpath', 'dist/jmeta-runtime.jar']
+    mirahc 'test', :dir=>'build', :dest=>'build', :options=>['--classpath', 'dist/jmeta-runtime.jar']
   end
   task :calc => :'test:compile' do
     runjava('Calculator', '4 * 3 - 2', :outputproperty=>'test.output',
-            :classpath=>'dist/jmeta-runtime.jar:build/test')
+            :classpath=>'dist/jmeta-runtime.jar:build/test', :failonerror=>false)
     if ant.properties['test.output'].to_s.strip == '10'
       puts "Calculator passed"
     else
       puts "Expected calculator result 10, got #{ant.properties['test.output']}"
+      exit(1)
+    end
+  end
+  task :mcalc => :'test:compile' do
+    runjava('test.Calculator2', '4 * 3 - 2', :outputproperty=>'test.output2',
+            :classpath=>'dist/jmeta-runtime.jar:build', :failonerror=>false)
+    if ant.properties['test.output2'].to_s.strip == '10'
+      puts "Mirah Calculator passed"
+    else
+      puts "Expected calculator result 10, got #{ant.properties['test.output2']}"
       exit(1)
     end
   end
@@ -98,7 +107,7 @@ Dir.glob('test/*.mmeta').each do |f|
   end
 end
 
-task :test => [:'test:calc', :'test:mirah']
+task :test => [:'test:calc', :'test:mcalc', :'test:mirah']
 
 directory 'dist'
 directory 'build/test'
@@ -114,6 +123,7 @@ def runjava(jar, *args)
     options[:classname] = jar
   end
   options.merge!(args.pop) if args[-1].kind_of?(Hash)
+  puts "java #{jar} " + args.join(' ')
   ant.java options do
     args.each do |value|
       arg :value => value

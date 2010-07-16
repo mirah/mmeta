@@ -197,12 +197,17 @@ public class BaseParser {
         _string = null; _list = as.toArray(); _init();
     }
 
+    public void init(List<? extends Object> as) {
+        init(new ArrayList(as).toArray());
+    }
+
     public Object parse(Object o) { return parse(o, null); }
     public Object parse(Object o, String r) {
              if (o instanceof ArrayList) init((ArrayList) o);
         else if (o instanceof Object[])  init((Object[]) o);
         else if (o instanceof String)    init((String) o);
-        else throw new AssertionError("parse requires a ArrayList, Object[] or String");
+        else if (o instanceof List)    init((List) o);
+        else throw new AssertionError("parse requires a List, Object[] or String; got " + (o == null ? "null" : o.getClass().toString()));
 
         Object _t = null;
         if (r != null) _t = _jump(r.intern());
@@ -390,18 +395,18 @@ public class BaseParser {
                 if (first) first = false; else sb.append(sep);
                 sb.append(o.toString());
             }
-        } else if (ls instanceof ArrayList) {
-            for (Object o : (ArrayList<?>)ls) {
+        } else if (ls instanceof List) {
+            for (Object o : (List<?>)ls) {
                 if (first) first = false; else sb.append(sep);
                 sb.append(o.toString());
             }
         } else if (ls != null ){
-            throw new IllegalArgumentException("'join' must receive a ArrayList or Object[]. Got " + ls.getClass().getName());
+            throw new IllegalArgumentException("'join' must receive a List or Object[]. Got " + ls.getClass().getName());
         }
         return sb.toString();
     }
 
-    // helper that concatenates two Arrays or ArrayLists together
+    // helper that concatenates two Arrays or Lists together
     public Object concat(Object ls, Object rs) {
         if (ls instanceof Object[]) {
             Object[] la = (Object[]) ls;
@@ -431,7 +436,7 @@ public class BaseParser {
             }
          }
 
-        throw new IllegalArgumentException("'concat' must receive two ArrayLists or Object[]s. Got " + ls.getClass().getName() + " and " + rs.getClass().getName());
+        throw new IllegalArgumentException("'concat' must receive two Lists or Object[]s. Got " + ls.getClass().getName() + " and " + rs.getClass().getName());
     }
 
     public Object _listBegin() {
@@ -444,6 +449,8 @@ public class BaseParser {
             list = (Object[])ls;
         } else if (ls instanceof ArrayList) {
             list = ((ArrayList<?>)ls).toArray();
+        } else if (ls instanceof List) {
+            list = new ArrayList((List)ls).toArray();
         } else {
             return ERROR;
         }

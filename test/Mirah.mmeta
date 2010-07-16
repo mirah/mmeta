@@ -1,0 +1,62 @@
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.util.ArrayList
+import java.util.List
+import java.util.Collections
+
+parser MirahParser {
+    def main(args:String[]) {
+        parser = MirahParser.new
+        # parser.tracing = true
+        reader = BufferedReader.new(InputStreamReader.new(System.in))
+        buffer = char[8192]
+        builder = StringBuilder.new
+        while (read = reader.read(buffer, 0, buffer.length)) > 0
+          builder.append(buffer, 0, read);
+        end
+        puts BaseParser.print_r(parser.parse(builder.toString()))
+    }
+
+    def oneOf() {
+      chars = String(_pop)
+      _char(chars)
+    }
+
+    def initialize {
+      @HEX = "0123456789abcdefABCDEF"
+      @DECIMAL = "0123456789"
+      @OCTAL = "01234567"
+      @BINARY = "01"
+    }
+
+    def parseInt(string:string, radix:int) {
+      Integer.valueOf(Integer.parseInt(string, radix))
+    }
+
+
+    digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
+                                 d={[a] + b} { join(d) };
+    ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
+    start: ! prog=compstmt . end { ["Script", prog] };
+    compstmt: terms* a=(s=statement terms+ {s})*
+              b=(statement | { ArrayList.new })
+              {a + b};
+    terms: . (";" | "\n") (. ";")*;
+    statement: e=numeric;
+    numeric: floatLiteral | fixnum;
+    fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
+                    | oneOf("dD") d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
+                    | oneOf("oO") d=digits(@OCTAL)+ { parseInt(join(d), 8) }
+                    | oneOf("bB") d=digits(@BINARY)+ { parseInt(join(d), 2) }
+                    | d=digits(@OCTAL)* { parseInt("0" + join(d), 8) }
+                    )
+              | d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
+              ) {["Fixnum", n]};
+    floatLiteral: . f=(i=digits(@DECIMAL)+
+                       f=("." digits(@DECIMAL)+ | { ArrayList.new })
+                       e=(oneOf("eE") digits(@DECIMAL)+ | { ArrayList.new })
+                       ?{List(f).size() + List(e).size() > 0}
+                       s={i+["."]+f+["E"]+e}
+                       { Double.new(join(s)) }
+                      ) {["Float", f]};
+}

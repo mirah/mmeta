@@ -54,53 +54,54 @@ public parser JMetaParser {
                   | "$" n=name                                          { return "\"+"+ n +"+\"";        } ;
     dollarstring  : "\"" xs=(~"\"" (dollar|echar))* "\""                { return join(xs); } ;
 
-    string        : s=tsString                                          { ['Str, s] } ;
+    string        : s=tsString                                          { [:Str, s] } ;
     number        : sign=("-"|"+"|empty) ds=digit+                      { return new Object[] {"HLit", ""+ sign + join(ds)}; } ;
-    symbol        : ("'"!|":") s=name                                 { ['Sym, s] } ;
+    symbol        : ("'"!|":") s=name                                 { [:Sym, s] } ;
     k keyword=_   : str(keyword) ~(nameFirst|digit)                     { keyword } ;
 
-    error         : "!" msg=(dollarstring|empty)                        { ['Error, msg] } ;
-    any           : "_"                                                 { ['App, '_any] } ;
-    wsdot         : "."                                                 { ['App, 'ws]   } ;
+    error         : "!" msg=(dollarstring|empty)                        { [:Error, msg] } ;
+    any           : "_"                                                 { [:App, :_any] } ;
+    wsdot         : "."                                                 { [:App, :ws]   } ;
 
-    args          : "(" ! as=listOf('simplehost,",") .")"               { as }
+    args          : "(" ! as=listOf(:simplehost,",") .")"               { as }
                   | empty                                               { [] } ;
-    application   : "super."! r=name as=args                            { ['App, 'super, r] + as }
-                  | r=name as=args                                      { ['App, r] + as } ;
+    application   : "super."! r=name as=args                            { [:App, :super, r] + as }
+                  | r=name as=args                                      { [:App, r] + as } ;
 
-    simplehost    : rs=simplehost ."+" .ls=simplehost                   { ['HConcat, rs, ls] }
-                  | "[" ! xs=listOf('simplehost,",") ."]"               { ['HList] + xs }
+    simplehost    : rs=simplehost ."+" .ls=simplehost                   { [:HConcat, rs, ls] }
+                  | "[" ! xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }
                   | .n=number                                           { n }
-                  | ."'"! s=name                                        { ['HStr, s] }
-                  | .s=tsString                                         { ['HStr, s] }
-                  | .n=name                                             { ['HLit, n] } ;
+                  | .("'"!|":") s=name                                  { [:HStr, s] }
+                  | .s=tsString                                         { [:HStr, s] }
+                  | ."@" n=name                                         { return new Object[] {"HLit", "@"+n}; }
+                  | .n=name                                             { [:HLit, n] } ;
     cbraces       : "{" xs=cbraces* "}"                                 { return "{"+ join(xs) +"}"; }
                   | ~"}" _ ;
-    semAction     : "{" . s=simplehost ."}"                             { ['SAct, s] }
+    semAction     : "{" . s=simplehost ."}"                             { [:SAct, s] }
                   | "{"!  xs=cbraces*    "}"                            { return new Object[] {"Act", join(xs)}; } ;
     semPred       : "?{"! xs=cbraces*    "}"                            { return new Object[] {"Pred", join(xs)}; } ;
 
 
-    expr          : xs=listOf('expr4,"|")                               { ['Or]  + xs  } ;
-    expr4         : xs=expr3*                                           { ['And] + xs  } ;
-    optIter x=_   : "*"                                                 { ['Many,  x]  }
-                  | "+"                                                 { ['Many1, x]  }
-                  | "?"                                                 { ['Opt,   x]  }
+    expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
+    expr4         : xs=expr3*                                           { [:And] + xs  } ;
+    optIter x=_   : "*"                                                 { [:Many,  x]  }
+                  | "+"                                                 { [:Many1, x]  }
+                  | "?"                                                 { [:Opt,   x]  }
                   | empty                                               { x            } ;
-    expr3         : .n=name ."="! .e=expr2 x=optIter(e)                 { ['Set, n, x] }
+    expr3         : .n=name ."="! .e=expr2 x=optIter(e)                 { [:Set, n, x] }
                   | .e=expr2 x=optIter(e)                               { x            } ;
-    expr2         : "~"! x=expr2                                        { ['Not,  x]   }
-                  | "&"! x=expr1                                        { ['Peek, x]   }
+    expr2         : "~"! x=expr2                                        { [:Not,  x]   }
+                  | "&"! x=expr1                                        { [:Peek, x]   }
                   | expr1 ;
     expr1         : wsdot | any | error | semPred | semAction | application
-                  | x=(k("null")|k("true")|k("false"))                  { ['HLit, x] }
+                  | x=(k("null")|k("true")|k("false"))                  { [:HLit, x] }
                   | string | symbol | number
-                  | "[" .x=expr ."]"                                    { ['List, x] }
+                  | "[" .x=expr ."]"                                    { [:List, x] }
                   | "(" .x=expr .")"                                    { x } ;
 
-    rule          : &(.n=name) .x=rulePart(n) xs=(.";" .rulePart(n))* .";"  { ['Rule, n, ['Or, x] + xs ] } ;
+    rule          : &(.n=name) .x=rulePart(n) xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
     rulePart rn=_ : .n=name ?{ return n.equals(rn); } !
-                    .b1=expr4 (.":"! .b2=expr                                { ['And, b1, b2] }
+                    .b1=expr4 (.":"! .b2=expr                                { [:And, b1, b2] }
                               | empty                                        { b1 }
                               ) ;
 
@@ -114,7 +115,7 @@ public parser JMetaParser {
         String body = ""+ q +" "+ r +" "+ n +"("+ join(as) +") {"+ join(bs) +"}";
         return new Object[] {"Method", body };
     }
-              | "def" . s=("self." | {""}) n=name (."(" as=(~")" _)* ")"| {""}) ."{" bs=cbraces* "}"
+              | "def" . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")"| {""})! ."{" bs=cbraces* "}"
     {
         String body = "def " + s + n + "("+ join(as) +");" + join(bs) + ";end";
         return new Object[] {"Method", body};
@@ -125,7 +126,7 @@ public parser JMetaParser {
         String body = ""+ q +" "+ t +" "+ n +" = "+ join(xs) +";";
         return new Object[] {"Field", body } ;
     } ;
-    jimport   : stm=k("import") ! xs=(~";" _)* ";"
+    jimport   : stm=k("import") ! xs=(~oneOf(";\n") _)* ";"?
     {
         String body = stm + join(xs) +";";
         return new Object[] {"Import", body };
@@ -144,11 +145,11 @@ public parser JMetaParser {
     ruleMethod: .method | .field | .rule ;
     parser    : .p=(k("public")|empty) .k("parser") ! .n=name .sn=(k("extends") .name|empty {"BaseParser"})
                 ."{" rs=ruleMethod* ."}"
-                p={ ['Parser, p, n, sn] + rs }
+                p={ [:Parser, p, n, sn] + rs }
                 { return new JMetaOptimizer().parse(p, "optimizeGrammar"); } ;
 
     line      : p=. l=(parser|jpackage|jimport|classdef)  { return new Object[] {"Line", join(p), l}; } ;
-    file      : ! ls=line* . end                 { ['File] + ls } ;
+    file      : ! ls=line* . end                 { [:File] + ls } ;
     start     : file ;
 }
 
@@ -160,15 +161,15 @@ parser JMetaPass {
     trans   : [ x=destruct ]                             { x }
             | _                                                ;
 
-    Or       xs=trans*            { ['Or]  + xs   } ;
-    And      xs=trans*            { ['And] + xs   } ;
-    Not      x=trans              { ['Not,   x]   } ;
-    Many     x=trans              { ['Many,  x]   } ;
-    Many1    x=trans              { ['Many1, x]   } ;
-    Peek     x=trans              { ['Peek,  x]   } ;
-    List     x=trans              { ['List,  x]   } ;
-    Set      n=_ x=trans          { ['Set,  n, x] } ;
-    Rule     n=_ x=trans          { ['Rule, n, x] } ;
+    Or       xs=trans*            { [:Or]  + xs   } ;
+    And      xs=trans*            { [:And] + xs   } ;
+    Not      x=trans              { [:Not,   x]   } ;
+    Many     x=trans              { [:Many,  x]   } ;
+    Many1    x=trans              { [:Many1, x]   } ;
+    Peek     x=trans              { [:Peek,  x]   } ;
+    List     x=trans              { [:List,  x]   } ;
+    Set      n=_ x=trans          { [:Set,  n, x] } ;
+    Rule     n=_ x=trans          { [:Rule, n, x] } ;
 
     start: r=destruct end { r }
          | r=_ end        { r }
@@ -177,9 +178,9 @@ parser JMetaPass {
 
 parser JMetaAndOrOpt extends JMetaPass {
     And  x=trans end          setChanged { x } ;
-    And xs=transInside('And)             { ['And] + xs } ;
+    And xs=transInside(:And)             { [:And] + xs } ;
     Or   x=trans end          setChanged { x } ;
-    Or  xs=transInside('Or)              { ['Or] + xs  } ;
+    Or  xs=transInside(:Or)              { [:Or] + xs  } ;
 
     transInside s=_ : [ sym(s) xs=transInside(s) ] ys=transInside(s) setChanged { xs + ys  }
                     |   x=trans xs=transInside(s)                               { [x] + xs }
@@ -187,7 +188,7 @@ parser JMetaAndOrOpt extends JMetaPass {
 }
 
 parser JMetaOptimizer {
-    optimizeGrammar: ! 'Parser p=_ n=_ sn=_ rs=optimizeRule* end              { ['Parser, p, n, sn] + rs } ;
+    optimizeGrammar: ! :Parser p=_ n=_ sn=_ rs=optimizeRule* end              { [:Parser, p, n, sn] + rs } ;
     optimizeRule:    r=_ {
         JMetaAndOrOpt opt = new JMetaAndOrOpt();
         do {
