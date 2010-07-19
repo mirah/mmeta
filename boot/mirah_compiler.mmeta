@@ -157,7 +157,7 @@ public parser MMetaCompiler {
 
     Opt indent x=trans outdent { "#{@_}#{x}\n_t=(_string.nil? \"\" : nil) if _t == __ERROR__;" };
 
-    Not x=trans { "#{@_}#{x}\n_t = (_t == __ERROR__ ? Boolean.valueOf(true) : __ERROR__);"};
+    Not x=trans { "#{@_}#{x}\n_t = (_t == __ERROR__ ? Object(Boolean.valueOf(true)) : __ERROR__);"};
 
     Peek x=trans {
       var = genvar

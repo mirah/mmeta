@@ -22,7 +22,7 @@ parser MirahParser {
       _char(chars)
     }
 
-    def codepoint() {
+    def _codepoint() {
       t = _any
       return -1 if t == __ERROR__
       character = Character(t).charValue
@@ -37,9 +37,20 @@ parser MirahParser {
       end
     }
 
+    def codepoint {
+      start = _pos
+      t = _codepoint
+      if t == -1
+        self._pos = start
+        return Object(__ERROR__)
+      else
+        return Object(String.new(Character.toChars(t)))
+      end
+    }
+
     def identifierChar() {
       start = _pos
-      c = codepoint
+      c = _codepoint
       if c == 95 || Character.isLetterOrDigit(c)
         Object(String.new(Character.toChars(c)))
       else
@@ -50,7 +61,7 @@ parser MirahParser {
 
     def upperCase {
       start = _pos
-      c = codepoint
+      c = _codepoint
       if Character.isUpperCase(c)
         Object(String.new(Character.toChars(c)))
       else
@@ -70,6 +81,28 @@ parser MirahParser {
       Integer.valueOf(Integer.parseInt(string, radix))
     }
 
+    def stringConcat(strings:Object) {
+      result = nil
+      List(strings).each do |s|
+        result = stringConcat(result, s)
+      end
+      return result
+    }
+
+    def stringConcat(a:Object, b:Object) {
+      return b if a.nil?
+      la = List(a)
+      lb = List(b)
+      if la.get(0).equals("DString") || lb.get(0).equals("DString")
+        result = ArrayList.new
+        result.add("DString")
+        result.addAll(la.subList(1, la.size()))
+        result.addAll(lb.subList(1, lb.size()))
+        return List(result)
+      else
+        ["String", String(la.get(1)) + String(lb.get(1))]
+      end
+    }
 
     digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                  d={[a] + b} { join(d) };
@@ -82,7 +115,7 @@ parser MirahParser {
 
     statement: e=primary;
 
-    primary: literal | variable;
+    primary: literal | string | variable;
 
     literal: numeric | symbol;
 
@@ -94,10 +127,41 @@ parser MirahParser {
             | . "false" {[:False]}
             | "@@" n=identifierChar+ {['ClassVar', join(n)]}
             | "@" n=identifierChar+ {['InstVar', join(n)]}
-            | h=upperCase t=identifierChar* {['Constant', String(h) + join(t)]}
-            | n=identifierChar+ {['Identifier', join(n)]};
+            | ~reswords h=upperCase t=identifierChar* {['Constant', String(h) + join(t)]}
+            | ~reswords n=identifierChar+ {['Identifier', join(n)]};
 
     symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ { ['Symbol', join(concat([v], n)) ] };
+
+    string: character
+          | strings=string1+ {stringConcat(strings)};
+
+    string1: . "'"! s=squote_contents* "'" {['String', join(s)]};
+
+    squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
+
+    character: . "?" e=escape {['Character', String(e).codePointAt(0)]}
+             | . "?" c=codepoint {['Character', String(c).codePointAt(0)]};
+
+    escape: "\\"! ("n" {"\u000a"}
+                  |"s" {"\u0020"}
+                  |"r" {"\u000d"}
+                  |"t" {"\u0009"}
+                  |"v" {"\u000b"}
+                  |"f" {"\u000c"}
+                  |"b" {"\u0008"}
+                  |"a" {"\u0007"}
+                  |"e" {"\u001b"}
+                  |a=oneOf(@OCTAL) b=oneOf(@OCTAL) c=oneOf(@OCTAL)
+                    {String.new(Character.toChars(Integer.parseInt("#{a}#{b}#{c}", 8)))}
+                  |"x"! a=oneOf(@HEX) b=oneOf(@HEX)
+                    {String.new(Character.toChars(Integer.parseInt("#{a}#{b}", 16)))}
+                  |"u"! c1=oneOf(@HEX) c2=oneOf(@HEX) c3=oneOf(@HEX) c4=oneOf(@HEX)
+                    {String.new(Character.toChars(Integer.parseInt("#{c1}#{c2}#{c3}#{c4}", 16)))}
+                  |"U"! c1=oneOf(@HEX) c2=oneOf(@HEX) c3=oneOf(@HEX) c4=oneOf(@HEX)
+                        c5=oneOf(@HEX) c6=oneOf(@HEX) c7=oneOf(@HEX) c8=oneOf(@HEX)
+                    {String.new(Character.toChars(Integer.parseInt("#{c1}#{c2}#{c3}#{c4}#{c5}#{c6}#{c7}#{c8}", 16)))}
+                  |codepoint
+                  );
 
     fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
                     | oneOf("dD") d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
@@ -115,4 +179,10 @@ parser MirahParser {
                        s={i+["."]+f+["E"]+e}
                        { Double.new(join(s)) }
                       ) {["Float", f]};
+    reswords: "__LINE__"|"__FILE__"|"__ENCODING__"|"BEGIN"|"END"|"alias"
+              |"and"|"begin"|"break"|"case"|"class"|"def"|"defined"|"do"
+              |"else"|"elsif"|"end"|"ensure"|"false"|"for"|"in"|"module"
+              |"next"|"nil"|"not"|"or"|"redo"|"rescue"|"retry"|"return"
+              |"self"|"super"|"then"|"true"|"undef"|"when"|"yield"|"if"
+              |"unless"|"while"|"until";
 }

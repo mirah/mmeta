@@ -5,6 +5,7 @@ $CLASSPATH << 'dist/jmeta-runtime.jar' << 'build'
 
 class TestParsing < Test::Unit::TestCase
   java_import 'jmeta.SyntaxError'
+  java_import 'jmeta.BaseParser'
   java_import 'test.MirahParser'
 
   def parse(text)
@@ -70,6 +71,10 @@ EOF
     assert_parse("[Script, [[ClassVar, cbar]]]", '@@cbar')
     assert_parse("[Script, [[Identifier, a]]]", 'a')
     assert_parse("[Script, [[Identifier, b]]]", 'b')
+    assert_parse("[Script, [[Constant, A]]]", 'A')
+    assert_parse("[Script, [[Constant, B]]]", 'B')
+    assert_fails("BEGIN")
+    assert_fails("until")
   end
 
   def test_float
@@ -79,5 +84,33 @@ EOF
     assert_parse("[Script, [[Float, 22.2]]]", "0_2.2_2e0_1")
     assert_fails("3.E0")
     assert_fails("1.")
+  end
+
+  def test_strings
+    assert_parse("[Script, [[Character, 97]]]", "?a")
+    assert_parse("[Script, [[Character, 65]]]", "?A")
+    assert_parse("[Script, [[Character, 63]]]", "??")
+    assert_parse("[Script, [[Character, 8364]]]", "?â‚¬")
+    assert_parse("[Script, [[Character, 119648]]]", "?í ´í½ ")
+    assert_parse("[Script, [[Character, 10]]]", "?\\n")
+    assert_parse("[Script, [[Character, 32]]]", "?\\s")
+    assert_parse("[Script, [[Character, 13]]]", "?\\r")
+    assert_parse("[Script, [[Character, 9]]]", "?\\t")
+    assert_parse("[Script, [[Character, 11]]]", "?\\v")
+    assert_parse("[Script, [[Character, 12]]]", "?\\f")
+    assert_parse("[Script, [[Character, 8]]]", "?\\b")
+    assert_parse("[Script, [[Character, 7]]]", "?\\a")
+    assert_parse("[Script, [[Character, 27]]]", "?\\e")
+    assert_parse("[Script, [[Character, 10]]]", "?\\012")
+    assert_parse("[Script, [[Character, 18]]]", "?\\x12")
+    assert_parse("[Script, [[Character, 8364]]]", "?\\u20ac")
+    assert_parse("[Script, [[Character, 119648]]]", "?\\U0001d360")
+    assert_parse("[Script, [[Character, 91]]]", "?\\[")
+    assert_fails("?aa")
+    assert_parse("[Script, [[String, ]]]", "''")
+    assert_parse("[Script, [[String, a]]]", "'a'")
+    assert_parse("[Script, [[String, \\'\\n]]]", "'\\\\\\'\\n'")
+    assert_fails("'")
+    assert_fails("'\\'")
   end
 end
