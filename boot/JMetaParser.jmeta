@@ -69,7 +69,7 @@ public parser JMetaParser {
                   | r=name as=args                                      { [:App, r] + as } ;
 
     simplehost    : rs=simplehost ."+" .ls=simplehost                   { [:HConcat, rs, ls] }
-                  | "[" ! xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }
+                  | "[" xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }
                   | .n=number                                           { n }
                   | .("'"!|":") s=name                                  { [:HStr, s] }
                   | .s=tsString                                         { [:HStr, s] }

@@ -22,6 +22,43 @@ parser MirahParser {
       _char(chars)
     }
 
+    def codepoint() {
+      t = _any
+      return -1 if t == __ERROR__
+      character = Character(t).charValue
+      if character >= 0xd800 && character <= 0xdbff
+        t = _any
+        if t == __ERROR__
+          return -1
+        end
+        return Character.toCodePoint(character, Character(t).charValue)
+      else
+        return int(character)
+      end
+    }
+
+    def identifierChar() {
+      start = _pos
+      c = codepoint
+      if c == 95 || Character.isLetterOrDigit(c)
+        Object(String.new(Character.toChars(c)))
+      else
+        self._pos = start
+        __ERROR__
+      end
+    }
+
+    def upperCase {
+      start = _pos
+      c = codepoint
+      if Character.isUpperCase(c)
+        Object(String.new(Character.toChars(c)))
+      else
+        self._pos = start
+        __ERROR__
+      end
+    }
+
     def initialize {
       @HEX = "0123456789abcdefABCDEF"
       @DECIMAL = "0123456789"
@@ -39,11 +76,29 @@ parser MirahParser {
     ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
     start: ! prog=compstmt . end { ["Script", prog] };
     compstmt: terms* a=(s=statement terms+ {s})*
-              b=(statement | { ArrayList.new })
+              b=(s=statement {[s]} | { ArrayList.new })
               {a + b};
     terms: . (";" | "\n") (. ";")*;
-    statement: e=numeric;
+
+    statement: e=primary;
+
+    primary: literal | variable;
+
+    literal: numeric | symbol;
+
     numeric: floatLiteral | fixnum;
+
+    variable: . "nil" {[:Nil]}
+            | . "self" {[:Self]}
+            | . "true" {[:True]}
+            | . "false" {[:False]}
+            | "@@" n=identifierChar+ {['ClassVar', join(n)]}
+            | "@" n=identifierChar+ {['InstVar', join(n)]}
+            | h=upperCase t=identifierChar* {['Constant', String(h) + join(t)]}
+            | n=identifierChar+ {['Identifier', join(n)]};
+
+    symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ { ['Symbol', join(concat([v], n)) ] };
+
     fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
                     | oneOf("dD") d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
                     | oneOf("oO") d=digits(@OCTAL)+ { parseInt(join(d), 8) }
@@ -52,6 +107,7 @@ parser MirahParser {
                     )
               | d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
               ) {["Fixnum", n]};
+
     floatLiteral: . f=(i=digits(@DECIMAL)+
                        f=("." digits(@DECIMAL)+ | { ArrayList.new })
                        e=(oneOf("eE") digits(@DECIMAL)+ | { ArrayList.new })

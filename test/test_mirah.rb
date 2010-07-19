@@ -24,14 +24,14 @@ class TestParsing < Test::Unit::TestCase
   end
 
   def test_fixnum
-    assert_parse("[Script, [Fixnum, 0]]", '0')
-    assert_parse("[Script, [Fixnum, 100]]", '1_0_0')
-    assert_parse("[Script, [Fixnum, 15]]", '0xF')
-    assert_parse("[Script, [Fixnum, 15]]", '0Xf')
-    assert_parse("[Script, [Fixnum, 15]]", '017')
-    assert_parse("[Script, [Fixnum, 15]]", '0o17')
-    assert_parse("[Script, [Fixnum, 15]]", '0b1111')
-    assert_parse("[Script, [Fixnum, 15]]", '0d15')
+    assert_parse("[Script, [[Fixnum, 0]]]", '0')
+    assert_parse("[Script, [[Fixnum, 100]]]", '1_0_0')
+    assert_parse("[Script, [[Fixnum, 15]]]", '0xF')
+    assert_parse("[Script, [[Fixnum, 15]]]", '0Xf')
+    assert_parse("[Script, [[Fixnum, 15]]]", '017')
+    assert_parse("[Script, [[Fixnum, 15]]]", '0o17')
+    assert_parse("[Script, [[Fixnum, 15]]]", '0b1111')
+    assert_parse("[Script, [[Fixnum, 15]]]", '0d15')
     assert_fails "0_"
     assert_fails "0X"
     assert_fails "0b1_"
@@ -48,13 +48,35 @@ class TestParsing < Test::Unit::TestCase
 
 EOF
     assert_parse("[Script, [[Fixnum, 1], [Fixnum, 2], [Fixnum, 3]]]", code)
+    assert_parse("[Script, [[Fixnum, 1], [Fixnum, 2]]]", "1; 2")
+  end
+
+  def test_symbol
+    assert_parse("[Script, [[Symbol, foo]]]", ':foo')
+    assert_parse("[Script, [[Symbol, bar]]]", ':bar')
+    assert_parse("[Script, [[Symbol, @bar]]]", ':@bar')
+    assert_parse("[Script, [[Symbol, @@cbar]]]", ':@@cbar')
+    assert_fails(":")
+  end
+
+  def test_variable
+    assert_parse("[Script, [[True]]]", 'true')
+    assert_parse("[Script, [[False]]]", 'false')
+    assert_parse("[Script, [[Nil]]]", 'nil')
+    assert_parse("[Script, [[Self]]]", 'self')
+    assert_parse("[Script, [[InstVar, foo]]]", '@foo')
+    assert_parse("[Script, [[InstVar, bar]]]", '@bar')
+    assert_parse("[Script, [[ClassVar, cfoo]]]", '@@cfoo')
+    assert_parse("[Script, [[ClassVar, cbar]]]", '@@cbar')
+    assert_parse("[Script, [[Identifier, a]]]", 'a')
+    assert_parse("[Script, [[Identifier, b]]]", 'b')
   end
 
   def test_float
-    assert_parse("[Script, [Float, 0.0]]", "0e1")
-    assert_parse("[Script, [Float, 10.0]]", "1e0_1")
-    assert_parse("[Script, [Float, 20.0]]", "0_2e0_1")
-    assert_parse("[Script, [Float, 22.2]]", "0_2.2_2e0_1")
+    assert_parse("[Script, [[Float, 0.0]]]", "0e1")
+    assert_parse("[Script, [[Float, 10.0]]]", "1e0_1")
+    assert_parse("[Script, [[Float, 20.0]]]", "0_2e0_1")
+    assert_parse("[Script, [[Float, 22.2]]]", "0_2.2_2e0_1")
     assert_fails("3.E0")
     assert_fails("1.")
   end
