@@ -104,10 +104,14 @@ parser MirahParser {
       end
     }
 
+    def getCodePoint(c:Object) {
+      String(c).codePointAt(0)
+    }
+
     digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                  d={[a] + b} { join(d) };
     ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
-    start: ! prog=compstmt . end { ["Script", prog] };
+    start: ! prog=compstmt . end -> ^(Script prog);
     compstmt: terms* a=(s=statement terms+ {s})*
               b=(s=statement {[s]} | { ArrayList.new })
               {a + b};
@@ -125,22 +129,22 @@ parser MirahParser {
             | . "self" -> ^(Self)
             | . "true" -> ^(True)
             | . "false" -> ^(False)
-            | "@@" n=identifierChar+ {['ClassVar', join(n)]}
-            | "@" n=identifierChar+ {['InstVar', join(n)]}
-            | ~reswords h=upperCase t=identifierChar* {['Constant', String(h) + join(t)]}
-            | ~reswords n=identifierChar+ {['Identifier', join(n)]};
+            | "@@" n=identifierChar+ -> ^(ClassVar join(n))
+            | "@" n=identifierChar+ -> ^(InstVar join(n))
+            | ~reswords h=upperCase t=identifierChar* -> ^(Constant "#{h}#{join(t)}")
+            | ~reswords n=identifierChar+ -> ^(Identifier join(n));
 
-    symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ { ['Symbol', join(concat([v], n)) ] };
+    symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
     string: character
           | strings=string1+ {stringConcat(strings)};
 
-    string1: . "'"! s=squote_contents* "'" {['String', join(s)]};
+    string1: . "'"! s=squote_contents* "'" -> ^(String join(s));
 
     squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
 
-    character: . "?" e=escape {['Character', String(e).codePointAt(0)]}
-             | . "?" c=codepoint {['Character', String(c).codePointAt(0)]};
+    character: . "?" e=escape -> ^(Character getCodePoint(e))
+             | . "?" c=codepoint -> ^(Character getCodePoint(c));
 
     escape: "\\"! ("n" {"\u000a"}
                   |"s" {"\u0020"}
@@ -178,7 +182,7 @@ parser MirahParser {
                        ?{List(f).size() + List(e).size() > 0}
                        s={i+["."]+f+["E"]+e}
                        { Double.new(join(s)) }
-                      ) {["Float", f]};
+                      ) -> ^(Float f);
     reswords: "__LINE__"|"__FILE__"|"__ENCODING__"|"BEGIN"|"END"|"alias"
               |"and"|"begin"|"break"|"case"|"class"|"def"|"defined"|"do"
               |"else"|"elsif"|"end"|"ensure"|"false"|"for"|"in"|"module"

@@ -68,8 +68,13 @@ public parser JMetaParser {
     application   : "super."! r=name as=args                            { [:App, :super, r] + as }
                   | r=name as=args                                      { [:App, r] + as } ;
 
-    rewrite_expr  : . n=name                                            { [:HLit, n] }
-                  | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]};
+    fname         : t=(x=name "." {return ((String)x)+".";})* n=name {return join(t) + n;};
+    parens        : "(" x=(parens | ~oneOf("()") _)* ")" {return "("+join(x)+")";};
+
+    rewrite_expr  : . n=name p=parens                                  { return new Object[] {"HLit", ((String)n)+p}; }
+                  | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]}
+                  | .s=tsString                                         { [:HStr, s] }
+                  | . n=name                                            { [:HLit, n] };
 
     simplehost    : rs=simplehost ."+" .ls=simplehost                   { [:HConcat, rs, ls] }
                   | "[" xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }

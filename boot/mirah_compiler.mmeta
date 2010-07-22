@@ -106,7 +106,7 @@ public parser MMetaCompiler {
     };
     App rule=_ { rule = "__end__" if "end".equals(rule); "_t=#{rule}();" };
 
-    # Don't include whitespace at the beginning of the rule in it's position.
+    # Don't include whitespace at the beginning of the rule in it's position
     Dot {"if _start == _pos;_t=ws();_real_start=_pos;nil;else;_t=ws();end;"};
 
     SAct expr=trans { "_t=#{expr};" };
