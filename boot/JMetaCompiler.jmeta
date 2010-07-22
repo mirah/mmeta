@@ -95,7 +95,9 @@ public parser JMetaCompiler {
     App rule=_ { return w(
         "_t=", rule, "();"
     ); };
-
+    Dot { return w(
+        "_t=ws();"
+    ); };
 
     SAct expr=trans { return w(
         "_t=", expr, ";"

@@ -18,25 +18,18 @@ class Memoize {
     public String toString() { return "at: "+ pos +" val: "+ val; }
 }
 
-class Position {
-    public final int pos;
-    public final int line;
-    public final int atchar;
-
-    Position(int pos, int linepos, int line) {
-        // humans start counting at 1, not 0, thus we add 1 to line and atchar
-        this.pos = pos;
-        this.line = line + 1;
-        this.atchar = pos - linepos + 1;
-    }
-    public String toString() {
-        return "(line: "+ line +", char:" + atchar +")";
-    }
-}
-
-
 /// Root parser object, all parsers will in the end extend BaseParser
 public class BaseParser {
+    public BaseParser() {
+        lines.put(0, 0);
+    }
+
+    private static class ReverseComparator implements Comparator<Comparable>  {
+        public int compare(Comparable a, Comparable b) {
+            return -a.compareTo(b);
+        }
+    }
+
     public static String print_r(Object o) {
         StringBuffer sb = new StringBuffer();
         print_r(o, sb);
@@ -87,6 +80,9 @@ public class BaseParser {
     State _stack = null;
     SparseArrayList<HashMap<String, Memoize>> _positions;
     ArrayDeque<HashSet<String>> _lefts;
+    // Use a reverse sorted TreeSet so we can use lines.tailSet(x).first() to find the
+    // first value <= x;
+    private TreeMap<Integer, Integer> lines = new TreeMap<Integer, Integer>(new ReverseComparator());
 
     public int _pos = 0;
     public int _pos() { return _pos; }
@@ -175,6 +171,8 @@ public class BaseParser {
         _pos = 0;
         _positions = new SparseArrayList<HashMap<String, Memoize>>();
         _lefts = new ArrayDeque<HashSet<String>>();
+        lines = new TreeMap<Integer, Integer>(new ReverseComparator());
+        lines.put(0, 0);
         args = new ArrayDeque<Object>();
         init();
     }
@@ -258,8 +256,19 @@ public class BaseParser {
     /// '_'
     public Object _any() {
         if (! args.isEmpty()) return args.pop();
-        if (_string != null)
-            if (_pos < _string.length()) return _string.charAt(_pos++); else return ERROR;
+        if (_string != null) {
+            if (_pos < _string.length()) {
+                char c = _string.charAt(_pos++);
+                if (c == '\n' || (c == '\r' && _cpeek() != '\n')) {
+                    if (!lines.containsKey(_pos)) {
+                        lines.put(_pos, lines.size());
+                    }
+                }
+                return c;
+            } else {
+                return ERROR;
+            }
+        }
         if (_list != null)
             if (_pos < _list.length) return _list[_pos++]; else return ERROR;
         throw new IllegalStateException("no _list nor _string??");
@@ -272,14 +281,19 @@ public class BaseParser {
     }
 
     /// returns current position in stream, counted by every success of apply(nl)
-    public Object pos() {
+    public Position pos() {
+        return pos(_pos);
+    }
+    
+    public Position pos(int pos) {
         if (_string == null)
             throw new IllegalStateException("'pos' is only available in string parsing");
 
+        int linepos = lines.tailMap(pos).firstKey();
+        int line = lines.get(linepos);
+
         // TODO actually keep track of every apply(nl) that succeeds
-        int _linepos = 0;
-        int _line = 0;
-        return new Position(_pos, _linepos, _line);
+        return new Position(pos, linepos, line);
     }
 
     public Object col() {
@@ -291,8 +305,19 @@ public class BaseParser {
         return _pos - pos - 1;
     }
 
+    public Object build_node(String name, List<?> children, int start_pos, int end_pos) {
+        Ast node = new Ast(name, children);
+        node.start_position_set(pos(start_pos));
+        node.end_position_set(pos(end_pos));
+        return node;
+    }
+
     public char _cpeek() {
-        return _string.charAt(_pos);
+        if (_pos < _string.length()) {
+            return _string.charAt(_pos);
+        } else {
+            return '\0';
+        }
     }
 
     public Object _peek() {

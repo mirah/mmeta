@@ -121,10 +121,10 @@ parser MirahParser {
 
     numeric: floatLiteral | fixnum;
 
-    variable: . "nil" {[:Nil]}
-            | . "self" {[:Self]}
-            | . "true" {[:True]}
-            | . "false" {[:False]}
+    variable: . "nil" -> ^(Nil)
+            | . "self" -> ^(Self)
+            | . "true" -> ^(True)
+            | . "false" -> ^(False)
             | "@@" n=identifierChar+ {['ClassVar', join(n)]}
             | "@" n=identifierChar+ {['InstVar', join(n)]}
             | ~reswords h=upperCase t=identifierChar* {['Constant', String(h) + join(t)]}
@@ -170,7 +170,7 @@ parser MirahParser {
                     | d=digits(@OCTAL)* { parseInt("0" + join(d), 8) }
                     )
               | d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
-              ) {["Fixnum", n]};
+              ) -> ^(Fixnum n);
 
     floatLiteral: . f=(i=digits(@DECIMAL)+
                        f=("." digits(@DECIMAL)+ | { ArrayList.new })

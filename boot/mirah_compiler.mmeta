@@ -73,10 +73,18 @@ public parser MMetaCompiler {
     destruct: ! t=_ r=apply(t) end    { r } ;
     trans: [ r=destruct ]             { r } ;
 
-    HList ls=trans* { ;"[#{join(ls, ", ")}]" };
+    HList ls=trans* {
+      if List(ls).size == 0
+        "ArrayList.new"
+      else
+        "[#{join(ls, ", ")}]"
+      end
+    };
     HConcat l=trans r=trans { "concat(#{l}, #{r})" };
     HStr c=_ { "\""+ Utils.escape(c) +"\"" };
     HLit c=_ { c } ;
+
+    Node n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
 
     Error msg=_ {
         DoError.new(msg);
@@ -98,6 +106,8 @@ public parser MMetaCompiler {
     };
     App rule=_ { rule = "__end__" if "end".equals(rule); "_t=#{rule}();" };
 
+    # Don't include whitespace at the beginning of the rule in it's position.
+    Dot {"if _start == _pos;_t=ws();_real_start=_pos;nil;else;_t=ws();end;"};
 
     SAct expr=trans { "_t=#{expr};" };
     Act expr=_ {
@@ -173,7 +183,7 @@ public parser MMetaCompiler {
       @rules.add(n)
       "
   def #{n}
-    _t=Object(nil); _start=_pos;
+    _t=Object(nil); _start=_pos; _real_start=-1;
     _t=_retrieve(\"#{@name}.#{n}\"); return _t if (_t!=__NOT_MEMOIZED__)
     #{localsAsInit}    begin
     #{b}

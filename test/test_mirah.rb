@@ -9,11 +9,11 @@ class TestParsing < Test::Unit::TestCase
   java_import 'test.MirahParser'
 
   def parse(text)
-    MirahParser.print_r(MirahParser.new.parse(text))
+    MirahParser.new.parse(text)
   end
 
   def assert_parse(expected, text)
-    assert_equal(expected, parse(text))
+    assert_equal(expected, MirahParser.print_r(parse(text)))
   end
 
   def assert_fails(text)
@@ -50,6 +50,19 @@ class TestParsing < Test::Unit::TestCase
 EOF
     assert_parse("[Script, [[Fixnum, 1], [Fixnum, 2], [Fixnum, 3]]]", code)
     assert_parse("[Script, [[Fixnum, 1], [Fixnum, 2]]]", "1; 2")
+    ast = parse(code)
+    assert_equal(1, ast[1][0].start_position.line)
+    assert_equal(1, ast[1][0].start_position.col)
+    assert_equal(1, ast[1][0].end_position.line)
+    assert_equal(2, ast[1][0].end_position.col)
+    assert_equal(2, ast[1][1].start_position.line)
+    assert_equal(3, ast[1][1].start_position.col)
+    assert_equal(2, ast[1][1].end_position.line)
+    assert_equal(4, ast[1][1].end_position.col)
+    assert_equal(4, ast[1][2].start_position.line)
+    assert_equal(1, ast[1][2].start_position.col)
+    assert_equal(4, ast[1][2].end_position.line)
+    assert_equal(2, ast[1][2].end_position.col)
   end
 
   def test_symbol

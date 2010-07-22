@@ -61,12 +61,15 @@ public parser JMetaParser {
 
     error         : "!" msg=(dollarstring|empty)                        { [:Error, msg] } ;
     any           : "_"                                                 { [:App, :_any] } ;
-    wsdot         : "."                                                 { [:App, :ws]   } ;
+    wsdot         : "."                                                 { [:Dot] } ;
 
     args          : "(" ! as=listOf(:simplehost,",") .")"               { as }
                   | empty                                               { [] } ;
     application   : "super."! r=name as=args                            { [:App, :super, r] + as }
                   | r=name as=args                                      { [:App, r] + as } ;
+
+    rewrite_expr  : . n=name                                            { [:HLit, n] }
+                  | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]};
 
     simplehost    : rs=simplehost ."+" .ls=simplehost                   { [:HConcat, rs, ls] }
                   | "[" xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }
@@ -78,7 +81,8 @@ public parser JMetaParser {
     cbraces       : "{" xs=cbraces* "}"                                 { return "{"+ join(xs) +"}"; }
                   | ~"}" _ ;
     semAction     : "{" . s=simplehost ."}"                             { [:SAct, s] }
-                  | "{"!  xs=cbraces*    "}"                            { return new Object[] {"Act", join(xs)}; } ;
+                  | "{"!  xs=cbraces*    "}"                            { return new Object[] {"Act", join(xs)}; }
+                  | "->" s=rewrite_expr                                 { [:SAct, s] };
     semPred       : "?{"! xs=cbraces*    "}"                            { return new Object[] {"Pred", join(xs)}; } ;
 
 
