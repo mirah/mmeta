@@ -45,8 +45,8 @@ public parser JMetaParser {
     name          : ~"def" f=nameFirst rs=nameRest*                            { return join(concat(new Object[] {f}, rs)); } ;
 
     hex      : oneOf("0123456789abcdefABCDEF");
-    echar         : "\\u" u1=hex u2=hex u3=hex u4=hex                   { return (char)Integer.parseInt(""+u1+u2+u3+u4, 16); }
-                  | "\\"! c=oneOf("\"'nrtf\\")                          { return Utils.unescape((Character)c); }
+    echar         : //"\\u" u1=hex u2=hex u3=hex u4=hex                   { return (char)Integer.parseInt(""+u1+u2+u3+u4, 16); }
+                  | "\\"! c=_                                           { return "\\" + c; }
                   | _ ;
     tsString      : "\"" xs=(~"\"" echar)* "\""                         { return join(xs); } ;
 
@@ -71,7 +71,8 @@ public parser JMetaParser {
     fname         : t=(x=name "." {return ((String)x)+".";})* n=name {return join(t) + n;};
     parens        : "(" x=(parens | ~oneOf("()") _)* ")" {return "("+join(x)+")";};
 
-    rewrite_expr  : . n=name p=parens                                  { return new Object[] {"HLit", ((String)n)+p}; }
+    rewrite_expr  : . n=name p=parens                                   { return new Object[] {"HLit", ((String)n)+p}; }
+                  | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, c]}
                   | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]}
                   | .s=tsString                                         { [:HStr, s] }
                   | . n=name                                            { [:HLit, n] };

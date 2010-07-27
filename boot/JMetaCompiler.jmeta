@@ -62,7 +62,7 @@ public parser JMetaCompiler {
     HConcat l=trans r=trans { return w(
         "concat(", l, ",", r, ")"
     ); };
-    HStr c=_ { return "\""+ Utils.escape(c) +"\""; } ;
+    HStr c=_ { return "\""+ c +"\""; } ;
     HLit c=_ { c } ;
 
     Error msg=_ {
@@ -76,7 +76,7 @@ public parser JMetaCompiler {
         );
     };
     Str s=_ { return w(
-        "_t=_str(\"", Utils.escape(s), "\");"
+        "_t=_str(\"", s, "\");"
     ); };
     Sym s=_ { return w(
         "_t=_sym(\"", s, "\");"

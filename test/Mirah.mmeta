@@ -1,14 +1,23 @@
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.io.InputStream
+import java.io.FileInputStream
 import java.util.ArrayList
 import java.util.List
 import java.util.Collections
+import jmeta.Ast
 
 parser MirahParser {
-    def main(args:String[]) {
+    def self.main(args:String[]) {
+        returns void
         parser = MirahParser.new
         # parser.tracing = true
-        reader = BufferedReader.new(InputStreamReader.new(System.in))
+        if args.length > 0
+          stream = InputStream(FileInputStream.new(args[0]))
+        else
+          stream = System.in
+        end
+        reader = BufferedReader.new(InputStreamReader.new(stream))
         buffer = char[8192]
         builder = StringBuilder.new
         while (read = reader.read(buffer, 0, buffer.length)) > 0
@@ -108,53 +117,110 @@ parser MirahParser {
       String(c).codePointAt(0)
     }
 
+    def obj2ast(x:Object) {
+      if x.kind_of?(Ast)
+        Ast(x)
+      elsif x.kind_of?(List)
+        l = List(x)
+        if l.size == 0
+          Ast(nil)
+        elsif l.size == 1
+          obj2ast(l.get(0))
+        else
+          ast = Ast.new('Body', l)
+          first = obj2ast(l.get(0))
+          last = obj2ast(l.get(l.size - 1))
+          ast.start_position = first.start_position
+          ast.end_position = last.end_position
+          ast
+        end
+      elsif x.nil?
+        Ast(nil)
+      else
+        raise "Expected Ast, got #{x} (#{x.getClass})"
+      end
+    }
+
+    def addToBlock(a:Object, b:Object) {
+      x = obj2ast(a)
+      y = obj2ast(b)
+      if x.nil?
+        return y
+      elsif y.nil?
+        return x
+      end
+      x_kids = 'Body'.equals(x.name) ? x.children : [x]
+      y_kids = 'Body'.equals(y.name) ? y.children : [y]
+      body = Ast.new('Body', x_kids)
+      body.addAll(y_kids)
+      body.start_position = x.start_position
+      body.end_position = y.end_position
+      body
+    }
+
     digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                  d={[a] + b} { join(d) };
-    ws: (oneOf(" \t\f\r\u000b") | "\\\n")*;
+    ws: (oneOf(" \t\f\r\v") | "\\\n")*;
     start: ! prog=compstmt . end -> ^(Script prog);
     compstmt: terms* a=(s=statement terms+ {s})*
-              b=(s=statement {[s]} | { ArrayList.new })
-              {a + b};
+              b=statement?
+              {addToBlock(a, b)};
     terms: . (";" | "\n") (. ";")*;
 
     statement: e=primary;
 
-    primary: literal | string | variable;
+    primary: # "begin" bodystmt "end" |
+             literal
+           | string
+           | variable;
 
     literal: numeric | symbol;
 
     numeric: floatLiteral | fixnum;
 
-    variable: . "nil" -> ^(Nil)
-            | . "self" -> ^(Self)
-            | . "true" -> ^(True)
-            | . "false" -> ^(False)
-            | "@@" n=identifierChar+ -> ^(ClassVar join(n))
-            | "@" n=identifierChar+ -> ^(InstVar join(n))
-            | ~reswords h=upperCase t=identifierChar* -> ^(Constant "#{h}#{join(t)}")
-            | ~reswords n=identifierChar+ -> ^(Identifier join(n));
+    constant: . ~reswords h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
+
+    variable: . "nil"                                   -> ^(Nil)
+            | . "self"                                  -> ^(Self)
+            | . "true"                                  -> ^(True)
+            | . "false"                                 -> ^(False)
+            | . "@@" n=identifierChar+                  -> ^(ClassVar join(n))
+            | . "@" n=identifierChar+                   -> ^(InstVar join(n))
+            | . t=identifierChar+ p=oneOf("?!") ~"="    -> ^(FCall "#{join(t)}#{p}")
+            | c=constant                                -> ^(Constant c)
+            | . ~reswords n=identifierChar+             -> ^(Identifier join(n));
 
     symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
     string: character
           | strings=string1+ {stringConcat(strings)};
 
-    string1: . "'"! s=squote_contents* "'" -> ^(String join(s));
+    string1: . "'"! s=squote_contents* "'" -> ^(String join(s))
+           | . "\"\"" -> ^(String "")
+           | . "\"" s=dquote_contents "\"" {s}
+           | . "\"" c=(dquote_contents | str_ev)* "\"" -> ^(DString c+)
+           ;
+
+    str_ev: "\#@@" n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
+          | "\#@"! n=identifierChar+ -> ^(EvString ^(InstVar join(n)))
+          | "\#{"! c=compstmt "}" -> ^(EvString c);
+
 
     squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
+    dquote_contents: c=(escape | ~("\#{" | "\#@" | "\"")_)+ -> ^(String join(c));
 
     character: . "?" e=escape -> ^(Character getCodePoint(e))
              | . "?" c=codepoint -> ^(Character getCodePoint(c));
 
-    escape: "\\"! ("n" {"\u000a"}
-                  |"s" {"\u0020"}
-                  |"r" {"\u000d"}
-                  |"t" {"\u0009"}
-                  |"v" {"\u000b"}
-                  |"f" {"\u000c"}
-                  |"b" {"\u0008"}
-                  |"a" {"\u0007"}
-                  |"e" {"\u001b"}
+    escape: "\\"! ("n" {"\n"}
+                  |"s" {"\s"}
+                  |"r" {"\r"}
+                  |"t" {"\t"}
+                  |"v" {"\v"}
+                  |"f" {"\f"}
+                  |"b" {"\b"}
+                  |"a" {"\a"}
+                  |"e" {"\e"}
                   |a=oneOf(@OCTAL) b=oneOf(@OCTAL) c=oneOf(@OCTAL)
                     {String.new(Character.toChars(Integer.parseInt("#{a}#{b}#{c}", 8)))}
                   |"x"! a=oneOf(@HEX) b=oneOf(@HEX)

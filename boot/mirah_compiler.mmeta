@@ -81,7 +81,7 @@ public parser MMetaCompiler {
       end
     };
     HConcat l=trans r=trans { "concat(#{l}, #{r})" };
-    HStr c=_ { "\""+ Utils.escape(c) +"\"" };
+    HStr c=_ { "\"#{c}\"" };
     HLit c=_ { c } ;
 
     Node n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
@@ -93,7 +93,7 @@ public parser MMetaCompiler {
         addLocal(n);
         "#{x}\n#{@_}#{n}=_t;"
     };
-    Str s=_ { "_t=_str(\"#{Utils.escape(s)}\");" };
+    Str s=_ { "_t=_str(\"#{s}\");" };
     Sym s=_ { "_t=_sym(\"#{s}\");" };
 
 
@@ -165,7 +165,7 @@ public parser MMetaCompiler {
     Many  indent x=trans outdent { makeMany(x, false) } ;
     Many1 indent x=trans outdent { makeMany(x, true)  } ;
 
-    Opt indent x=trans outdent { "#{@_}#{x}\n_t=(_string.nil? \"\" : nil) if _t == __ERROR__;" };
+    Opt indent x=trans outdent { "#{@_}#{x}\n_t=(_string.nil? ? \"\" : nil) if _t == __ERROR__;" };
 
     Not x=trans { "#{@_}#{x}\n_t = (_t == __ERROR__ ? Object(Boolean.valueOf(true)) : __ERROR__);"};
 
