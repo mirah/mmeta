@@ -316,6 +316,10 @@ public class BaseParser {
         return build_node(name, (List<?>)children, start_pos, end_pos);
     }
 
+    public String text(int start, int end) {
+      return _string.substring(start, end);
+    }
+
     public char _cpeek() {
         if (_pos < _string.length()) {
             return _string.charAt(_pos);

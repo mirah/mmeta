@@ -21,7 +21,7 @@ task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
-file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.java') + ['build/runtime', 'dist'] do
+file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
   mirahc('jmeta/ast.mirah', :dest => 'build/runtime')
   ant.javac :srcDir=>'jmeta', :destDir=>'build/runtime', :debug=>true
   ant.jar :destfile=>'dist/jmeta-runtime.jar', :basedir=>'build/runtime'

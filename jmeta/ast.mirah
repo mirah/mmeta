@@ -73,7 +73,7 @@ class Ast < AbstractList
   end
 
   def children
-    Collections.unmodifiableList(@children)
+    List(@children)
   end
 
   def name
