@@ -267,7 +267,10 @@ parser MirahParser {
         node.add(_t)
       else
         l = List(_t)
-        if l.size == 1 && Ast(l.get(0)).name.equals('String')
+        if l.size == 0
+          node.name = 'String'
+          node.add("")
+        elsif l.size == 1 && Ast(l.get(0)).name.equals('String')
           node.name = 'String'
           node.addAll(Ast(l.get(0)).children)
         else
