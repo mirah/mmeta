@@ -219,6 +219,7 @@ public class BaseParser {
     public Object start() { throw new IllegalStateException("provide a rule called 'start'"); }
 
     public void _push(Object... as) { for (int i = as.length - 1; i >= 0; i--) args.push(as[i]); }
+    public void _push(Object a) { args.push(a); }
     public Object _pop() { return args.pop(); }
 
     /// rule that requires a Symbol and runs the corresponding rule

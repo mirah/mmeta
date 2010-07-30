@@ -80,6 +80,10 @@ class Ast < AbstractList
     @name
   end
 
+  def name=(name:String)
+    @name = name
+  end
+
   def start_position
     @start
   end

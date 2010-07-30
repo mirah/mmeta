@@ -148,8 +148,9 @@ public parser JMetaParser {
     } ;
     classdef  : q=qualifiers . k("class") ! xs=(~"{" _)* "{" bs=cbraces* "}"
     {
-        String body = ""+ q +" class "+ join(xs) +" {"+ join(bs) +"}";
-        return new Object[] {"Class", body } ;
+        String decl = " class "+ join(xs);
+        String body = join(bs);
+        return new Object[] {"Class", q, decl, body } ;
     } ;
 
     ruleMethod: .method | .field | .rule ;

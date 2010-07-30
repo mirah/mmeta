@@ -154,6 +154,24 @@ EOF
     assert_fails('"#@"')
     assert_fails('"#{"')
   end
+
+  def test_heredocs
+    assert_parse("[Script, [String, a\n]]", "<<'A'\na\nA\n")
+    assert_parse("[Script, [String, ]]", "<<'A'\nA\n")
+    assert_parse("[Script, [String, a\n  A\n]]", "<<'A'\na\n  A\nA\n")
+    assert_parse("[Script, [String, a\n]]", "<<-'A'\na\n  A\n")
+    assert_parse("[Script, [Body, [String, a\n], [String, b\n], [Fixnum, 1]]]",
+                 "<<'A';<<'A'\na\nA\nb\nA\n1")
+    assert_parse("[Script, [String, a\n]]", "<<\"A\"\na\nA\n")
+    assert_parse("[Script, [String, a\n  A\n]]", "<<A\na\n  A\nA\n")
+    assert_parse("[Script, [String, a\n]]", "<<-A\na\n  A\n")
+    assert_parse("[Script, [DString]]", "<<A\nA\n")
+    assert_parse("[Script, [Body, [String, a\n], [String, b\n], [Fixnum, 1]]]",
+                 "<<A;<<A\na\nA\nb\nA\n1")
+    assert_parse("[Script, [Body, [DString, [EvString, [String, B\n]], [String, \n]], [String, b\n], [Constant, A]]]",
+                 "<<A;<<B\n\#{<<A\nB\nA\n}\nA\nb\nB\nA\n")
+    assert_fails("<<FOO")
+  end
 end
 
 __END__

@@ -256,7 +256,7 @@ public parser JMetaCompiler {
     Field   c=_ { return w("  ", c, "\n"); } ;
     Package c=_ { jpackage = c; return ""; } ;
     Import  c=_ { c } ;
-    Class   c=_ { c } ;
+    Class   q=_ d=_ c=_ { return "" + q + d + "{" + c + "}"; } ;
     Line  ws=_ x=trans { return w(ws, x); } ;
 
     File  xs=trans* { return w(

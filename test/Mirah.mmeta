@@ -8,18 +8,53 @@ import java.util.LinkedList
 import java.util.Collections
 import jmeta.Ast
 
-parser MirahParser {
+public class HeredocContext {
+  def initialize(node:Object)
+    @node = Ast(node)
+    @id = String(@node.get(1))
+    @type = '"'
+    if @id.startsWith("-")
+      @id = @id.substring(1)
+      @no_indent = false
+    else
+      @no_indent = true
+    end
+    if @id.startsWith("'")
+      @type = "'"
+      @id = @id.substring(1, @id.length - 1)
+    elsif @id.startsWith('"')
+      @id = @id.substring(1, @id.length - 1)
+    end
+  end
 
+  def id
+    @id
+  end
+
+  def node
+    @node
+  end
+
+  def no_indent
+    @no_indent
+  end
+
+  def type
+    @type
+  end
+}
+
+parser MirahParser {
   digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                d={[a] + b} { join(d) };
   ws: (oneOf(" \t\f\r\v") | "\\" nl)*;
-  start: ! prog=compstmt . end -> ^(Script prog);
+  start: ! prog=compstmt . end heredoc -> ^(Script prog);
   compstmt: terms* a=(s=statement terms+ {s})*
             b=statement?
             {addToBlock(a, b)};
   terms: . (";" | nl) (. ";")*;
 
-  nl: "\n";
+  nl: "\n" heredoc;
 
   statement: e=primary;
 
@@ -53,7 +88,7 @@ parser MirahParser {
          | . "\"\"" -> ^(String "")
          | . "\"" s=dquote_contents "\"" {s}
          | . "\"" c=(dquote_contents | str_ev)* "\"" -> ^(DString c+)
-         | . "<<" x=heredoc_id -> ^(Heredoc x)
+         | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
 
   str_ev: "\#@@" n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
@@ -63,14 +98,21 @@ parser MirahParser {
   heredoc_id: "-"? ( "\""! identifierChar+ "\""
                    | "'"! identifierChar+ "'"
                    | identifierChar+
-                   ) {
-                     id = text(_start, _pos)
-                     @heredocs.addLast(id)
-                     id
-                   };
+                   ) {text(_start, _pos)};
 
   squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
   dquote_contents: c=(escape | ~("\#{" | "\#@" | "\"")_)+ -> ^(String join(c));
+
+  squote_heredoc id=_ : s=(~heredoc_marker(id) _)* heredoc_marker(id) {join(s)};
+  dquote_heredoc id=_ : n=( str_ev
+                          | s=(~(heredoc_marker(id) | "\#{" | "\#@") _)+
+                            -> ^(String join(s))
+                          )* heredoc_marker(id) {n};
+
+  heredoc_marker c=_ : ?{"\n".equals(text(_pos - 1, _pos))}
+                       ( ?{HeredocContext(c).no_indent}
+                       | oneOf(" \t\f\r\v")*
+                       ) {_str(HeredocContext(c).id)} "\n";
 
   character: . "?" e=escape -> ^(Character getCodePoint(e))
            | . "?" c=codepoint -> ^(Character getCodePoint(c));
@@ -199,6 +241,43 @@ parser MirahParser {
     end
   }
 
+  def heredoc {
+    # Note: This won't parse if we backtrack over the newline and not
+    # the heredoc identifier. However the nl rule should be memoized
+    # so we should be safe.
+
+    # Set up a new list so nested heredocs match properly.
+    heredocs = @heredocs
+    @heredocs = LinkedList.new
+
+    while heredocs.size > 0
+      context = HeredocContext(heredocs.removeFirst)
+      _push(context)
+      node = context.node
+      node.children.clear
+      _t = if context.type == '"'
+        dquote_heredoc
+      else
+        squote_heredoc
+      end
+      if _t == __ERROR__
+        raise SyntaxError.new("Missing heredoc terminator #{context.id}.", _pos, _string, _list)
+      elsif _t.kind_of?(String)
+        node.name = 'String'
+        node.add(_t)
+      else
+        l = List(_t)
+        if l.size == 1 && Ast(l.get(0)).name.equals('String')
+          node.name = 'String'
+          node.addAll(Ast(l.get(0)).children)
+        else
+          node.name = 'DString'
+          node.addAll(l)
+        end
+      end
+    end
+    "\n"
+  }
 
   def parseInt(string:string, radix:int) {
     Integer.valueOf(Integer.parseInt(string, radix))
