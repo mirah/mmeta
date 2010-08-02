@@ -47,19 +47,41 @@ public class HeredocContext {
 parser MirahParser {
   digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                d={[a] + b} { join(d) };
+  k keyword=_   : . str(keyword) ~identifierChar {keyword};
+  listOf e=_ s=_: .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
+                | empty                                               { ArrayList.new } ;
+
   ws: (oneOf(" \t\f\r\v") | "\\" nl)*;
   start: ! prog=compstmt . end heredoc -> ^(Script prog);
   compstmt: terms* a=(s=statement terms+ {s})*
             b=statement?
             {addToBlock(a, b)};
+
+  bodystmt: b=compstmt r=Rescue? e=Else? f=Ensure? {
+    node = b
+    if r != nil
+      node = build_node('Rescue', [b, r, e], _start, _pos)
+    elsif e != nil
+      # Warning?
+      node = addToBlock(b, e)
+    end
+    unless f.nil?
+      end_pos = Ast(f).end_position
+      node ||= build_node('ImplicitNil', ArrayList.new, _start, end_pos.pos)
+      node = build_node('Ensure', [node, f], _start, _pos)
+    end
+    node || build_node('ImplicitNil', ArrayList.new, _start, _pos)
+  };
+
+  term: . (";" | nl);
   terms: . (";" | nl) (. ";")*;
 
   nl: "\n" heredoc;
 
   statement: e=primary;
 
-  primary: # "begin" bodystmt "end" |
-           literal
+  primary: k("begin")! b=bodystmt k("end") -> ^(Begin b)
+         | literal
          | string
          | variable;
 
@@ -68,6 +90,7 @@ parser MirahParser {
   numeric: floatLiteral | fixnum;
 
   constant: . ~reswords h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
+  identifier: . ~reswords n=identifierChar+ {join(n)};
 
   variable: . "nil"                                   -> ^(Nil)
           | . "self"                                  -> ^(Self)
@@ -77,7 +100,7 @@ parser MirahParser {
           | . "@" n=identifierChar+                   -> ^(InstVar join(n))
           | . t=identifierChar+ p=oneOf("?!") ~"="    -> ^(FCall "#{join(t)}#{p}")
           | c=constant                                -> ^(Constant c)
-          | . ~reswords n=identifierChar+             -> ^(Identifier join(n));
+          | n=identifier                              -> ^(Identifier n);
 
   symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
@@ -137,6 +160,14 @@ parser MirahParser {
                   {String.new(Character.toChars(Integer.parseInt("#{c1}#{c2}#{c3}#{c4}#{c5}#{c6}#{c7}#{c8}", 16)))}
                 |codepoint
                 );
+
+  Then: . term? k("then")| . term;
+
+  Ensure: k("ensure")! compstmt;
+  Else: k("else")! compstmt;
+
+  Rescue: (k("rescue")! c=listOf(:constant, ",") (. "=>" . n=identifier)?
+           Then b=compstmt -> ^(RescueClause c n b))+;
 
   fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
                   | oneOf("dD") d=digits(@DECIMAL)+ { parseInt(join(d), 10) }

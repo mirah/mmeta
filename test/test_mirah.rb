@@ -172,6 +172,34 @@ EOF
                  "<<A;<<B\n\#{<<A\nB\nA\n}\nA\nb\nB\nA\n")
     assert_fails("<<FOO")
   end
+
+  def test_begin
+    assert_parse("[Script, [Begin, [Body, [Fixnum, 1], [Fixnum, 2]]]]", "begin; 1; 2; end")
+    assert_parse("[Script, [Begin, [Fixnum, 1]]]", "begin; 1; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], null, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue; 2; end")
+    assert_parse("[Script, [Begin, [Ensure, [Rescue, [Fixnum, 1], [[RescueClause, [], null, [Fixnum, 2]]], null], [Fixnum, 3]]]]",
+                 "begin; 1; rescue; 2; ensure 3; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], null, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue then 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], null, [Fixnum, 2]]], [Fixnum, 3]]]]",
+                 "begin; 1; rescue then 2; else 3; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], null, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue;then 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], ex, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue => ex; 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [], ex, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue => ex then 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [A], null, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue A; 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [A, B], null, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue A, B; 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [A, B], t, [Fixnum, 2]]], null]]]",
+                 "begin; 1; rescue A, B => t; 2; end")
+    assert_parse("[Script, [Begin, [Rescue, [Fixnum, 1], [[RescueClause, [A], a, [Fixnum, 2]], [RescueClause, [B], b, [Fixnum, 3]]], null]]]",
+                 "begin; 1; rescue A => a;2; rescue B => b; 3; end")
+    assert_parse("[Script, [Begin, [Body, [Fixnum, 1], [Fixnum, 2]]]]", "begin; 1; else; 2; end")
+  end
 end
 
 __END__
@@ -184,7 +212,7 @@ __END__
 "1.foo(1)"
 "foo(1)"
 "if 1; 2; elsif !3; 4; else; 5; end"
-"begin; 1; 2; end"
+
 "class Foo < Bar; 1; 2; end"
 "def foo; end"
 "def foo(a, b); 1; end"
