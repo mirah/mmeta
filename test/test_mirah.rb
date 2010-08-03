@@ -200,6 +200,13 @@ EOF
                  "begin; 1; rescue A => a;2; rescue B => b; 3; end")
     assert_parse("[Script, [Begin, [Body, [Fixnum, 1], [Fixnum, 2]]]]", "begin; 1; else; 2; end")
   end
+
+  def test_primary
+    assert_parse("[Script, [True]]", '(true)')
+    assert_parse("[Script, [Body, [Fixnum, 1], [Fixnum, 2], [Fixnum, 3]]]", "(1; 2);3")
+    assert_parse("[Script, [Colon2Const, [Colon2Const, [Constant, A], B], C]]", 'A::B::C')
+    assert_parse("[Script, [Colon2Const, [Colon2Const, [Colon3, A], B], C]]", '::A::B::C')
+  end
 end
 
 __END__

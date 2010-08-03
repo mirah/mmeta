@@ -62,7 +62,7 @@ public class BaseParser {
             if (i > 0) System.out.print(" ");
             System.out.print(print_r(args[i]));
         }
-        System.out.println();
+        System.out.println(" at " + _pos);
         return args[args.length - 1];
     }
 
@@ -308,6 +308,13 @@ public class BaseParser {
 
     public Object build_node(String name, List<?> children, int start_pos, int end_pos) {
         Ast node = new Ast(name, children);
+        node.start_position_set(pos(start_pos));
+        node.end_position_set(pos(end_pos));
+        return node;
+    }
+
+    public Object build_node(String name, int start_pos, int end_pos) {
+        Ast node = new Ast(name);
         node.start_position_set(pos(start_pos));
         node.end_position_set(pos(end_pos));
         return node;

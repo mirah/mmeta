@@ -78,12 +78,28 @@ parser MirahParser {
 
   nl: "\n" heredoc;
 
-  statement: e=primary;
+  statement: primary;
+
+  expr: primary;
 
   primary: k("begin")! b=bodystmt k("end") -> ^(Begin b)
+         | . "(" e=expr . ")" { e }
+         | . "(" e=compstmt . ")" {
+           unless e.nil?
+             ae = Ast(e)
+             ae.start_position = pos(_start)
+             ae.end_position = pos(_pos)
+           end
+           e
+         }
+         | a=primary_value "::" b=constant -> ^(Colon2Const a b)
+         | . "::" c=constant -> ^(Colon3 c)
          | literal
-         | string
+         | memo(:string)
          | variable;
+
+  # todo checkExpression
+  primary_value: p=primary {p || build_node('ImplicitNil', _start, _pos)};
 
   literal: numeric | symbol;
 
@@ -186,6 +202,12 @@ parser MirahParser {
                      { Double.new(join(s)) }
                     ) -> ^(Float f);
 
+  # Left recursion clears memoization of some values, but heredocs
+  # can only be processed once. This rule forces memoization.
+  memo rule=_ : position = {Integer.valueOf(_pos)}
+                ( {@memo.get(position) || __ERROR__}
+                | v=apply(rule) { @memo.put(position, v); v });
+
   reswords: "__LINE__"|"__FILE__"|"__ENCODING__"|"BEGIN"|"END"|"alias"
             |"and"|"begin"|"break"|"case"|"class"|"def"|"defined"|"do"
             |"else"|"elsif"|"end"|"ensure"|"false"|"for"|"in"|"module"
@@ -196,7 +218,7 @@ parser MirahParser {
   def self.main(args:String[]) {
       returns void
       parser = MirahParser.new
-      # parser.tracing = true
+      BaseParser.tracing = true
       if args.length > 0
         stream = InputStream(FileInputStream.new(args[0]))
       else
@@ -217,6 +239,7 @@ parser MirahParser {
     @OCTAL = "01234567"
     @BINARY = "01"
     @heredocs = LinkedList.new
+    @memo = {}
   }
 
   def oneOf() {
