@@ -107,9 +107,17 @@ parser MirahParser {
          | ."!" ."(" e=value(expr) .")" -> ^(Call "!" e)
          | k(:if)! cond=value(expr) Then body=compstmt tail=if_tail k(:end)
            -> ^(If cond body tail)
-         | k(:unless) cond=value(expr) Then body=compstmt tail=Else? k(:end)
+         | k(:unless)! cond=value(expr) Then body=compstmt tail=Else? k(:end)
            -> ^(If cond tail body)
-
+         | k(:while)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+           -> ^(While cond body)
+         | k(:until)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+           -> ^(Until cond body)
+         # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
+         #   -> ^(Case val body)
+         # TODO is this too restrictive?
+         | k(:for) var=variable k(:in)! list=value(expr) Do body=compstmt k(:end)
+           -> ^(For var body list)
          # | operation brace_block
          # | method_call brace_block
          # | method_call
@@ -134,6 +142,8 @@ parser MirahParser {
   args: listOf(:arg_value, ",");
 
   call_args: args;
+
+  lhs: variable;
 
   assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
        | l=label v=arg_value -> ^(Assoc l v);
@@ -216,10 +226,10 @@ parser MirahParser {
                 |codepoint
                 );
 
-  Then: . term? k("then")| . term;
-
+  Then: . term? k("then") | . term;
   Ensure: k("ensure")! compstmt;
   Else: k("else")! compstmt;
+  Do: k("do") | . term;
 
   if_tail: Else
          | k("elsif")! cond=value(expr) Then body=compstmt tail=if_tail

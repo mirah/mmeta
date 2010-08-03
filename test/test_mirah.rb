@@ -241,11 +241,19 @@ EOF
     assert_fails("if a then 1 else 2 elsif b then 3 end")
     assert_fails("if a;elsif end")
   end
+
+  def test_loop
+    assert_parse("[Script, [While, [True], [Nil]]]", 'while true do end')
+    assert_parse("[Script, [While, [Identifier, a], [Identifier, b]]]", 'while a do b end')
+    assert_parse("[Script, [While, [Identifier, a], [Identifier, b]]]", 'while a; b; end')
+    assert_parse("[Script, [Until, [True], [Nil]]]", 'until true do end')
+    assert_parse("[Script, [Until, [Identifier, a], [Identifier, b]]]", 'until a do b end')
+    assert_parse("[Script, [Until, [Identifier, a], [Identifier, b]]]", 'until a; b; end')
+    assert_parse("[Script, [For, [Identifier, a], [Fixnum, 2], [Array, [Fixnum, 1]]]]", 'for a in [1];2;end')
+  end
 end
 
 __END__
-"foo"
-"'foo'"
 "int[5]"
 "a = 1; a"
 "@a = 1; @a"
@@ -261,6 +269,4 @@ __END__
 "def self.foo(a, b); 1; end"
 "def self.foo(a:foo, b:bar); 1; end"
 "return 1"
-"while 1; 2; end"
-"until 1; 2; end"
 "begin; 2; end until 1"
