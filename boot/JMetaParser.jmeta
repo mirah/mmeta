@@ -88,7 +88,7 @@ public parser JMetaParser {
                   | ~"}" _ ;
     semAction     : "{" . s=simplehost ."}"                             { [:SAct, s] }
                   | "{"!  xs=cbraces*    "}"                            { return new Object[] {"Act", join(xs)}; }
-                  | "->" s=rewrite_expr                                 { [:SAct, s] };
+                  | "->"! s=rewrite_expr                                 { [:SAct, s] };
     semPred       : "?{"! xs=cbraces*    "}"                            { return new Object[] {"Pred", join(xs)}; } ;
 
 
@@ -109,7 +109,7 @@ public parser JMetaParser {
                   | "[" .x=expr ."]"                                    { [:List, x] }
                   | "(" .x=expr .")"                                    { x } ;
 
-    rule          : &(.n=name) .x=rulePart(n) xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
+    rule          : &(.n=name) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
     rulePart rn=_ : .n=name ?{ return n.equals(rn); } !
                     .b1=expr4 (.":"! .b2=expr                                { [:And, b1, b2] }
                               | empty                                        { b1 }
