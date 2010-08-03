@@ -214,6 +214,17 @@ EOF
     assert_parse("[Script, [Hash, [Assoc, [Fixnum, 1], [Fixnum, 2]], [Assoc, [Fixnum, 3], [Fixnum, 4]]]]", ' { 1 => 2 , 3 => 4 }')
     assert_parse("[Script, [Hash, [Assoc, [Symbol, 1], [Fixnum, 2]]]]", ' { 1: 2 }')
     assert_parse("[Script, [Hash, [Assoc, [Symbol, 1], [Fixnum, 2]], [Assoc, [Symbol, 3], [Fixnum, 4]]]]", ' { 1: 2 , 3: 4 }')
+    assert_parse("[Script, [Yield]]", 'yield')
+    assert_parse("[Script, [Yield]]", 'yield ( )')
+    assert_parse("[Script, [Yield, [Constant, A]]]", 'yield(A)')
+    assert_parse("[Script, [Yield, [Constant, A], [Constant, B]]]", 'yield (A , B)')
+    assert_parse("[Script, [Yield, [Array, [Constant, A], [Constant, B]]]]", 'yield([A , B])')
+    assert_parse("[Script, [Next]]", 'next')
+    assert_parse("[Script, [Redo]]", 'redo')
+    assert_parse("[Script, [Break]]", 'break')
+    assert_parse("[Script, [Retry]]", 'retry')
+    assert_parse("[Script, [Call, !, [Nil]]]", '!()')
+    assert_parse("[Script, [Call, !, [True]]]", '!(true)')
   end
 end
 

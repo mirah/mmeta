@@ -67,10 +67,10 @@ parser MirahParser {
     end
     unless f.nil?
       end_pos = Ast(f).end_position
-      node ||= build_node('ImplicitNil', ArrayList.new, _start, end_pos.pos)
+      node ||= @nil
       node = build_node('Ensure', [node, f], _start, _pos)
     end
-    node || build_node('ImplicitNil', ArrayList.new, _start, _pos)
+    node || @nil
   };
 
   term: . (";" | nl);
@@ -98,6 +98,21 @@ parser MirahParser {
          | . "[" a=args trailer . "]" -> ^(Array a+)
          | . "{" . "}" -> ^(Hash)
          | . "{" a=listOf(:assoc, ",") trailer . "}" -> ^(Hash a+)
+         | k(:yield) . "(" . ")" -> ^(Yield)
+         | k(:yield) . "(" a=call_args . ")" -> ^(Yield a+)
+         | k(:yield) -> ^(Yield)
+         | ."!" ."(" .")" -> ^(Call "!" ^(Nil))
+         | ."!" ."(" e=expr .")" -> ^(Call "!" e)
+         
+         # | operation brace_block
+         # | method_call brace_block
+         # | method_call
+         
+         | k(:break) -> ^(Break)
+         | k(:next) -> ^(Next)
+         | k(:redo) -> ^(Redo)
+         | k(:retry) -> ^(Retry)
+         | k(:return) -> ^(Return ^(Nil))
          | literal
          | memo(:string)
          | variable;
@@ -110,6 +125,8 @@ parser MirahParser {
 
   # TODO splats
   args: listOf(:arg_value, ",");
+
+  call_args: args;
 
   assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
        | l=label v=arg_value -> ^(Assoc l v);
@@ -143,11 +160,11 @@ parser MirahParser {
   string1: . "'"! s=squote_contents* "'" -> ^(String join(s))
          | . "\"\"" -> ^(String "")
          | . "\"" s=dquote_contents "\"" {s}
-         | . "\"" c=(dquote_contents | str_ev)* "\"" -> ^(DString c+)
+         | . "\""! c=(dquote_contents | str_ev)* "\"" -> ^(DString c+)
          | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
 
-  str_ev: "\#@@" n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
+  str_ev: "\#@@"! n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
         | "\#@"! n=identifierChar+ -> ^(EvString ^(InstVar join(n)))
         | "\#{"! c=compstmt "}" -> ^(EvString c);
 
@@ -257,6 +274,8 @@ parser MirahParser {
     @BINARY = "01"
     @heredocs = LinkedList.new
     @memo = {}
+    @nil = Ast.new('Nil')
+    @nil.start_position = @nil.end_position = Position.new(0, 0, 0)
   }
 
   def oneOf() {
@@ -431,6 +450,6 @@ parser MirahParser {
 
   def checkExpression(e:Object) {
     # TODO actually check
-    e || build_node('ImplicitNil', 0, 0)
+    e || @nil
   }
 }
