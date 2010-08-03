@@ -206,6 +206,14 @@ EOF
     assert_parse("[Script, [Body, [Fixnum, 1], [Fixnum, 2], [Fixnum, 3]]]", "(1; 2);3")
     assert_parse("[Script, [Colon2Const, [Colon2Const, [Constant, A], B], C]]", 'A::B::C')
     assert_parse("[Script, [Colon2Const, [Colon2Const, [Colon3, A], B], C]]", '::A::B::C')
+    assert_parse("[Script, [ZArray]]", ' [ ]')
+    assert_parse("[Script, [Array, [Fixnum, 1], [Fixnum, 2]]]", ' [ 1 , 2 ]')
+    assert_parse("[Script, [Array, [Fixnum, 1], [Fixnum, 2]]]", ' [ 1 , 2 , ]')
+    assert_parse("[Script, [Hash]]", ' { }')
+    assert_parse("[Script, [Hash, [Assoc, [Fixnum, 1], [Fixnum, 2]]]]", ' { 1 => 2 }')
+    assert_parse("[Script, [Hash, [Assoc, [Fixnum, 1], [Fixnum, 2]], [Assoc, [Fixnum, 3], [Fixnum, 4]]]]", ' { 1 => 2 , 3 => 4 }')
+    assert_parse("[Script, [Hash, [Assoc, [Symbol, 1], [Fixnum, 2]]]]", ' { 1: 2 }')
+    assert_parse("[Script, [Hash, [Assoc, [Symbol, 1], [Fixnum, 2]], [Assoc, [Symbol, 3], [Fixnum, 4]]]]", ' { 1: 2 , 3: 4 }')
   end
 end
 

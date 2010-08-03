@@ -94,12 +94,29 @@ parser MirahParser {
          }
          | a=primary_value "::" b=constant -> ^(Colon2Const a b)
          | . "::" c=constant -> ^(Colon3 c)
+         | . "[" . "]" -> ^(ZArray)
+         | . "[" a=args trailer . "]" -> ^(Array a+)
+         | . "{" . "}" -> ^(Hash)
+         | . "{" a=listOf(:assoc, ",") trailer . "}" -> ^(Hash a+)
          | literal
          | memo(:string)
          | variable;
 
-  # todo checkExpression
-  primary_value: p=primary {p || build_node('ImplicitNil', _start, _pos)};
+  arg: primary_value;
+
+  arg_value: a=arg {checkExpression(a)};
+
+  trailer: . ("," | nl)?;
+
+  # TODO splats
+  args: listOf(:arg_value, ",");
+
+  assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
+       | l=label v=arg_value -> ^(Assoc l v);
+
+  label: . n=identifierChar+ ":" -> ^(Symbol join(n));
+
+  primary_value: p=primary {checkExpression(p)};
 
   literal: numeric | symbol;
 
@@ -410,5 +427,10 @@ parser MirahParser {
     body.start_position = x.start_position
     body.end_position = y.end_position
     body
+  }
+
+  def checkExpression(e:Object) {
+    # TODO actually check
+    e || build_node('ImplicitNil', 0, 0)
   }
 }
