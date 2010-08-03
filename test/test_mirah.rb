@@ -226,6 +226,21 @@ EOF
     assert_parse("[Script, [Call, !, [Nil]]]", '!()')
     assert_parse("[Script, [Call, !, [True]]]", '!(true)')
   end
+
+  def test_if
+    assert_parse("[Script, [If, [Identifier, a], [Fixnum, 1], null]]", 'if a then 1 end')
+    assert_parse("[Script, [If, [Identifier, a], [Fixnum, 1], null]]", 'if a;1;end')
+    assert_parse("[Script, [If, [Identifier, a], null, null]]", 'if a;else;end')
+    assert_parse("[Script, [If, [Identifier, a], [Fixnum, 1], [Fixnum, 2]]]", 'if a then 1 else 2 end')
+    assert_parse("[Script, [If, [Identifier, a], [Fixnum, 1], [If, [Identifier, b], [Fixnum, 2], [Fixnum, 3]]]]",
+                 'if a; 1; elsif b; 2; else; 3; end')
+    assert_parse("[Script, [If, [Identifier, a], null, [Fixnum, 1]]]", 'unless a then 1 end')
+    assert_parse("[Script, [If, [Identifier, a], null, [Fixnum, 1]]]", 'unless a;1;end')
+    assert_parse("[Script, [If, [Identifier, a], [Fixnum, 2], [Fixnum, 1]]]", 'unless a then 1 else 2 end')
+    assert_fails("if;end")
+    assert_fails("if a then 1 else 2 elsif b then 3 end")
+    assert_fails("if a;elsif end")
+  end
 end
 
 __END__

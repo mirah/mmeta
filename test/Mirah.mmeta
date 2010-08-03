@@ -80,6 +80,8 @@ parser MirahParser {
 
   statement: primary;
 
+  value v=_ : {checkExpression(v)};
+
   expr: primary;
 
   primary: k("begin")! b=bodystmt k("end") -> ^(Begin b)
@@ -92,7 +94,7 @@ parser MirahParser {
            end
            e
          }
-         | a=primary_value "::" b=constant -> ^(Colon2Const a b)
+         | a=value(primary) "::" b=constant -> ^(Colon2Const a b)
          | . "::" c=constant -> ^(Colon3 c)
          | . "[" . "]" -> ^(ZArray)
          | . "[" a=args trailer . "]" -> ^(Array a+)
@@ -102,12 +104,17 @@ parser MirahParser {
          | k(:yield) . "(" a=call_args . ")" -> ^(Yield a+)
          | k(:yield) -> ^(Yield)
          | ."!" ."(" .")" -> ^(Call "!" ^(Nil))
-         | ."!" ."(" e=expr .")" -> ^(Call "!" e)
-         
+         | ."!" ."(" e=value(expr) .")" -> ^(Call "!" e)
+         | k(:if)! cond=value(expr) Then body=compstmt tail=if_tail k(:end)
+           -> ^(If cond body tail)
+         | k(:unless) cond=value(expr) Then body=compstmt tail=Else? k(:end)
+           -> ^(If cond tail body)
+
          # | operation brace_block
          # | method_call brace_block
          # | method_call
-         
+         # | k(:lambda) lambda
+
          | k(:break) -> ^(Break)
          | k(:next) -> ^(Next)
          | k(:redo) -> ^(Redo)
@@ -117,7 +124,7 @@ parser MirahParser {
          | memo(:string)
          | variable;
 
-  arg: primary_value;
+  arg: value(primary);
 
   arg_value: a=arg {checkExpression(a)};
 
@@ -132,8 +139,6 @@ parser MirahParser {
        | l=label v=arg_value -> ^(Assoc l v);
 
   label: . n=identifierChar+ ":" -> ^(Symbol join(n));
-
-  primary_value: p=primary {checkExpression(p)};
 
   literal: numeric | symbol;
 
@@ -215,6 +220,11 @@ parser MirahParser {
 
   Ensure: k("ensure")! compstmt;
   Else: k("else")! compstmt;
+
+  if_tail: Else
+         | k("elsif")! cond=value(expr) Then body=compstmt tail=if_tail
+           -> ^(If cond body tail)
+         | {nil};
 
   Rescue: (k("rescue")! c=listOf(:constant, ",") (. "=>" . n=identifier)?
            Then b=compstmt -> ^(RescueClause c n b))+;
