@@ -173,6 +173,15 @@ EOF
     assert_fails("<<FOO")
   end
 
+  def test_regexp
+    assert_parse("[Script, [Regex, [[String, a]], ]]", '/a/')
+    assert_parse("[Script, [Regex, [[String, \\/]], ]]", '/\\//')
+    assert_parse("[Script, [Regex, [[String, a]], i]]", '/a/i')
+    assert_parse("[Script, [Regex, [[String, a]], iz]]", '/a/iz')
+    assert_parse("[Script, [Regex, [[String, a], [EvString, [Identifier, b]], [String, c]], iz]]", '/a#{b}c/iz')
+    assert_parse("[Script, [Regex, [], ]]", '//')
+  end
+
   def test_begin
     assert_parse("[Script, [Begin, [Body, [Fixnum, 1], [Fixnum, 2]]]]", "begin; 1; 2; end")
     assert_parse("[Script, [Begin, [Fixnum, 1]]]", "begin; 1; end")
@@ -225,6 +234,11 @@ EOF
     assert_parse("[Script, [Retry]]", 'retry')
     assert_parse("[Script, [Call, !, [Nil]]]", '!()')
     assert_parse("[Script, [Call, !, [True]]]", '!(true)')
+    assert_parse("[Script, [SClass, [Self], [Fixnum, 1]]]", 'class << self;1;end')
+    assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], null]]", 'class A;1;end')
+    assert_parse("[Script, [Class, [Colon2, [Constant, A], [Constant, B]], [Fixnum, 1], null]]", 'class A::B;1;end')
+    assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], [Constant, B]]]", 'class A < B;1;end')
+    assert_fails('class a;1;end')
   end
 
   def test_if
