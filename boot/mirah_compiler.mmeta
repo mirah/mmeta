@@ -103,13 +103,13 @@ public parser MMetaCompiler {
         else
           "ArrayList.new([#{join(args, ", ")}]).toArray"
         end
-        "_push(#{arg_str}); _t=super.#{rule}();"
+        "_push(#{arg_str}); _t=super();"
     };
-    App :super rule=_ { "_t=super.#{rule}();" };
+    App :super rule=_ { "_t=super();" };
     App rule=_ args=trans+ {
-        "_push(ArrayList.new([#{join(args, ", ")}]).toArray); _t=#{rule}();"
+        "_push(ArrayList.new([#{join(args, ", ")}]).toArray); _t=self.#{rule}();"
     };
-    App rule=_ { rule = "__end__" if "end".equals(rule); "_t=#{rule}();" };
+    App rule=_ { rule = "__end__" if "end".equals(rule); "_t=self.#{rule}();" };
 
     # Don't include whitespace at the beginning of the rule in it's position
     Dot {"if _start == _pos;_t=ws();_real_start=_pos;nil;else;_t=ws();end;"};

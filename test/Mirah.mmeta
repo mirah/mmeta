@@ -51,7 +51,8 @@ parser MirahParser {
   listOf e=_ s=_: .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
                 | empty                                               { ArrayList.new } ;
 
-  ws: (oneOf(" \t\f\r\v") | "\\" nl)*;
+  ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
+  comment: "#" (~"\n" _)*;
   start: ! prog=compstmt . end heredoc -> ^(Script prog);
   compstmt: terms* a=(s=statement terms+ {s})*
             b=statement?
@@ -127,7 +128,11 @@ parser MirahParser {
                        # in the static initializer?
            k(:end) {b ||= @nil}
            -> ^(Class n b s)
-         # module
+         # | module
+         | Def k(:self)! dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
+           -> ^(DefStatic name args body)
+         | Def! name=fname args=f_arglist body=bodystmt k(:end)
+           -> ^(Def name args body)
 
          # | operation brace_block
          # | method_call brace_block
@@ -144,11 +149,45 @@ parser MirahParser {
          | regexp
          | variable;
 
+  f_arglist: ."("! a=f_args .")" {a}
+           | a=f_args term {a};
+
+  f_args: req=f_arg! opt=(."," f_optarg)? rest=(."," f_rest_arg)? req2=(."," f_arg)? block=(."," f_block_arg)?
+            -> ^(Arguments req opt rest req2 block)
+        | opt=f_optarg! rest=(."," f_rest_arg)? req=(."," f_arg)? block=(."," f_block_arg)?
+            -> ^(Arguments nil opt rest req block)
+        | rest=f_rest_arg! req=(."," f_arg)? block=(."," f_block_arg)?
+            -> ^(Arguments nil nil rest req block)
+        | block=f_block_arg -> ^(Arguments nil nil nil nil block)
+        | -> ^(Arguments nil nil nil nil nil);
+
+  f_bad_arg: &constant !"formal argument not a constant" ?{false}
+           | &ivar !"formal argument not an instance variable" ?{false}
+           | &cvar !"formal argument not a class variable" ?{false};
+
+  f_norm_arg: f_bad_arg | identifier;
+
+  f_arg_item: ~f_opt n=f_norm_arg t=(":" arg_value)? -> ^(RequiredArgument n t);
+            # | ."(" f_margs .")"
+
+  f_arg: h=f_arg_item t=(."," f_arg_item)* {[h] + t};
+
+  f_opt: n=f_norm_arg t=(":" value(expr))? ."="! v=arg_value
+    -> ^(OptArg n v t);
+  f_optarg: h=f_opt t=(."," f_opt)* {[h] + t};
+
+  f_rest_arg: ."*" n=f_norm_arg t=(":" value(expr))? -> ^(RestArg n t)
+            | ."*" -> ^(UnnamedRestArg);
+
+  f_block_arg: ."&" n=f_norm_arg ."=" !"nil" k(:nil) -> ^(OptBlockArg n)
+             | ."&"! n=f_norm_arg -> ^(BlockArg n);
+
   arg: value(primary);
 
   arg_value: a=arg {checkExpression(a)};
 
   trailer: . ("," | nl)?;
+  dot_or_colon: . ("." | "::");
 
   # TODO splats
   args: listOf(:arg_value, ",");
@@ -168,6 +207,18 @@ parser MirahParser {
 
   constant: . ~reswords h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
   identifier: . ~reswords n=identifierChar+ {join(n)};
+  cvar: . "@@" n=identifierChar+ {join(n)};
+  ivar: . "@" n=identifierChar+ {join(n)};
+  fname: . n=identifierChar+ t=( b=oneOf("!?") ~"=" {b}
+                               | "=" ~(oneOf("~>=")|"\n>") {"="}
+                               | {""})
+           {"#{join(n)}#{t}"}
+       | op;
+
+  op: . ( "<=>" | "===" | "==" | "=~" | "!~" | "<=" | ">=" | "<<<"
+        | "<<" | ">>" | "!=" | "**" | "[]=" | "[]" | "+@" | "-@"
+        | oneOf("&|^<>+-*/%!~")
+        );
 
   cname: c=constant -> ^(Constant c)
        | &identifier !"class/module name must be CONSTANT" ?{false};
@@ -175,18 +226,18 @@ parser MirahParser {
   # JRuby allows primary_value in cpath. Do we want that?
   cpath: ."::" n=cname -> ^(Colon3 n)
        | a=(n=cname "::" {n})* b=cname
-         (?{List(a).size == 0} b |
+         (?{List(a).size == 0} {b} |
           names={a+[b]}-> ^(Colon2 names+));
 
   superclass: term {nil}
             | ."<" c=cpath term  # Should this be expr_value instead of cpath?
               {c};
 
-  variable: . "nil"                                   -> ^(Nil)
-          | . "self"                                  -> ^(Self)
-          | . "true"                                  -> ^(True)
-          | . "false"                                 -> ^(False)
-          | . "@@" n=identifierChar+                  -> ^(ClassVar join(n))
+  variable: k(:nil)                                   -> ^(Nil)
+          | k(:self)                                  -> ^(Self)
+          | k(:true)                                  -> ^(True)
+          | k(:false)                                 -> ^(False)
+          | v=cvar                                    -> ^(ClassVar v)
           | . "@" n=identifierChar+                   -> ^(InstVar join(n))
           | . t=identifierChar+ p=oneOf("?!") ~"="    -> ^(FCall "#{join(t)}#{p}")
           | c=constant                                -> ^(Constant c)
@@ -264,10 +315,11 @@ parser MirahParser {
   re_escape: unicode_escape
            | "\\"! c=codepoint {"\\#{c}"};
 
-  Then: . term? k("then") | . term;
-  Ensure: k("ensure")! compstmt;
-  Else: k("else")! compstmt;
-  Do: k("do") | . term;
+  Then: . term? k(:then) | . term;
+  Ensure: k(:ensure)! compstmt;
+  Else: k(:else)! compstmt;
+  Do: k(:do) | . term;
+  Def: k(:def) ~oneOf("?!");
 
   if_tail: Else
          | k("elsif")! cond=value(expr) Then body=compstmt tail=if_tail
@@ -300,12 +352,12 @@ parser MirahParser {
                 ( {@memo.get(position) || __ERROR__}
                 | v=apply(rule) { @memo.put(position, v); v });
 
-  reswords: "__LINE__"|"__FILE__"|"__ENCODING__"|"BEGIN"|"END"|"alias"
-            |"and"|"begin"|"break"|"case"|"class"|"def"|"defined"|"do"
-            |"else"|"elsif"|"end"|"ensure"|"false"|"for"|"in"|"module"
-            |"next"|"nil"|"not"|"or"|"redo"|"rescue"|"retry"|"return"
-            |"self"|"super"|"then"|"true"|"undef"|"when"|"yield"|"if"
-            |"unless"|"while"|"until";
+  reswords: k(:__LINE__)|k(:__FILE__)|k(:__ENCODING__)|k(:BEGIN)|k(:END)|k(:alias)
+          | k(:and)|k(:begin)|k(:break)|k(:case)|k(:class)|k(:def)|k(:defined)|k(:do)
+          | k(:else)|k(:elsif)|k(:end)|k(:ensure)|k(:false)|k(:for)|k(:in)|k(:module)
+          | k(:next)|k(:nil)|k(:not)|k(:or)|k(:redo)|k(:rescue)|k(:retry)|k(:return)
+          | k(:self)|k(:super)|k(:then)|k(:true)|k(:undef)|k(:when)|k(:yield)|k(:if)
+          | k(:unless)|k(:while)|k(:until);
 
   def self.main(args:String[]) {
       returns void
