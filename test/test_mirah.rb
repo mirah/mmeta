@@ -99,7 +99,6 @@ EOF
     assert_parse("[Script, [Float, 10.0]]", "1e0_1")
     assert_parse("[Script, [Float, 20.0]]", "0_2e0_1")
     assert_parse("[Script, [Float, 22.2]]", "0_2.2_2e0_1")
-    assert_fails("3.E0")
     assert_fails("1.")
   end
 
@@ -239,6 +238,7 @@ EOF
     assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], null]]", 'class A;1;end')
     assert_parse("[Script, [Class, [Colon2, [Constant, A], [Constant, B]], [Fixnum, 1], null]]", 'class A::B;1;end')
     assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], [Constant, B]]]", 'class A < B;1;end')
+#    assert_parse("[Script, [FCall, foo?, null, [Iter, null, [Identifier, x]]]]", "foo? {x}")
     assert_fails('class a;1;end')
   end
 
@@ -284,11 +284,11 @@ EOF
                  "def foo(a:String); 1; end")
     assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null], [RequiredArgument, b, null]], null, null, null, null], [Fixnum, 1]]]",
                  "def foo(a, b); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, [Fixnum, 1], null]], null, null, null], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, null, [Fixnum, 1]]], null, null, null], [Fixnum, 1]]]",
                  "def foo(a = 1); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, [Fixnum, 1], [Identifier, int]]], null, null, null], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, [Identifier, int], [Fixnum, 1]]], null, null, null], [Fixnum, 1]]]",
                  "def foo(a:int = 1); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, [Fixnum, 1], null], [OptArg, b, [Fixnum, 2], null]], null, null, null], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, a, null, [Fixnum, 1]], [OptArg, b, null, [Fixnum, 2]]], null, null, null], [Fixnum, 1]]]",
                  "def foo(a = 1, b=2); 1; end")
     assert_parse("[Script, [Def, foo, [Arguments, null, null, [UnnamedRestArg], null, null], [Fixnum, 1]]]",
                  "def foo(*); 1; end")
@@ -296,31 +296,61 @@ EOF
                  "def foo(*a); 1; end")
     assert_parse("[Script, [Def, foo, [Arguments, null, null, [RestArg, a, [Constant, Object]], null, null], [Fixnum, 1]]]",
                  "def foo(*a:Object); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, null, null, null, [BlockArg, a]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, null, null, null, [BlockArg, a, null]], [Fixnum, 1]]]",
                  "def foo(&a); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, null, null, null, [OptBlockArg, a]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, null, null, null, [OptBlockArg, a, null]], [Fixnum, 1]]]",
                  "def foo(&a = nil); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, [Fixnum, 1], null]], [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, null, [Fixnum, 1]]], [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(a, b=1, *c, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], null, [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], null, [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(a, *c, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, [Fixnum, 1], null]], null, [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, null, [Fixnum, 1]]], null, [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(a, b=1, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, [Fixnum, 1], null]], [RestArg, c, null], null, [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, a, null]], [[OptArg, b, null, [Fixnum, 1]]], [RestArg, c, null], null, [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(a, b=1, *c, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, [Fixnum, 1], null]], [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, null, [Fixnum, 1]]], [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(b=1, *c, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, [Fixnum, 1], null]], null, [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, null, [Fixnum, 1]]], null, [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(b=1, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, [Fixnum, 1], null]], [RestArg, c, null], null, [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, [[OptArg, b, null, [Fixnum, 1]]], [RestArg, c, null], null, [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(b=1, *c, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, null, [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, null, [RestArg, c, null], [[RequiredArgument, d, null]], [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(*c, d, &e); 1; end")
-    assert_parse("[Script, [Def, foo, [Arguments, null, null, [RestArg, c, null], null, [BlockArg, e]], [Fixnum, 1]]]",
+    assert_parse("[Script, [Def, foo, [Arguments, null, null, [RestArg, c, null], null, [BlockArg, e, null]], [Fixnum, 1]]]",
                  "def foo(*c, &e); 1; end")
     assert_fails("def foo(*a, *b);end")
     assert_fails("def foo(&a, &b);end")
     assert_fails("def foo(&a=1);end")
+  end
+
+  def test_method_call
+    assert_parse("[Script, [FCall, B, [], null]]", 'B()')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a]], null]]", 'foo(a)')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a], [Identifier, b]], null]]", 'foo(a, b)')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a], [Splat, [Identifier, b]]], null]]", 'foo(a, *b)')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a], [Splat, [Identifier, b]], [Hash, [Assoc, [Symbol, c], [Identifier, d]]]], null]]", 'foo(a, *b, c:d)')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a], [Splat, [Identifier, b]], [Hash, [Assoc, [Symbol, c], [Identifier, d]]]], null]]", 'foo(a, *b, :c => d)')
+    assert_parse("[Script, [FCall, foo, [[Identifier, a], [Splat, [Identifier, b]], [Hash, [Assoc, [Symbol, c], [Identifier, d]]], [BlockPass, [Identifier, e]]], null]]", 'foo(a, *b, c:d, &e)')
+    assert_parse("[Script, [FCall, foo, [[Hash, [Assoc, [Symbol, c], [Identifier, d]]]], null]]", 'foo(c:d)')
+    assert_parse("[Script, [FCall, foo, [[Hash, [Assoc, [Symbol, c], [Identifier, d]]], [BlockPass, [Identifier, e]]], null]]", 'foo(c:d, &e)')
+    assert_parse("[Script, [FCall, foo, [[BlockPass, [Identifier, e]]], null]]", 'foo(&e)')
+    assert_parse("[Script, [Call, foo, [Identifier, a], null]]", 'a.foo')
+    assert_parse("[Script, [Call, foo, [Identifier, a], []]]", 'a.foo()')
+    assert_parse("[Script, [Call, Foo, [Identifier, a], []]]", 'a.Foo()')
+    assert_parse("[Script, [Call, <=>, [Identifier, a], null]]", 'a.<=>')
+    assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]]]]", 'Foo::Bar(x)')
+    assert_parse("[Script, [Call, call, [Identifier, a], []]]", 'a.()')
+    assert_parse("[Script, [Super]]", 'super()')
+    assert_parse("[Script, [ZSuper]]", 'super')
+  end
+
+  def test_command
+    assert_parse("[Script, [FCall, A, [[Identifier, b]], null]]", 'A b')
+    assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]], null]]", 'Foo::Bar x')
+    assert_parse("[Script, [Call, bar, [Identifier, foo], [[Identifier, x]], null]]", 'foo.bar x')
+    assert_parse("[Script, [Super, [Identifier, x]]]", 'super x')
+    assert_parse("[Script, [Yield, [Identifier, x]]]", 'yield x')
+    assert_parse("[Script, [Return, [Identifier, x]]]", 'return x')
   end
 end
 __END__
@@ -328,9 +358,4 @@ __END__
 "a = 1; a"
 "@a = 1; @a"
 "[a = 1, 1]"
-"1.foo(1)"
-"foo(1)"
-
-"def foo(a, *c, &d); end"
-"return 1"
 "begin; 2; end until 1"

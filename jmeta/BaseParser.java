@@ -76,7 +76,7 @@ public class BaseParser {
     public final Memoize NOT_MEMOIZED     = new Memoize(null, -1)  { public String toString() { return "not memoized"; }};
     public Memoize __NOT_MEMOIZED__() { return NOT_MEMOIZED; }
 
-    ArrayDeque<Object> args;
+    LinkedList<Object> args;
     State _stack = null;
     SparseArrayList<HashMap<String, Memoize>> _positions;
     ArrayDeque<HashSet<String>> _lefts;
@@ -173,7 +173,7 @@ public class BaseParser {
         _lefts = new ArrayDeque<HashSet<String>>();
         lines = new TreeMap<Integer, Integer>(new ReverseComparator());
         lines.put(0, 0);
-        args = new ArrayDeque<Object>();
+        args = new LinkedList<Object>();
         init();
     }
 

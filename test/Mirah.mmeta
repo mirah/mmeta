@@ -79,11 +79,30 @@ parser MirahParser {
 
   nl: "\n" heredoc;
 
-  statement: primary;
+  statement: expr;
 
   value v=_ : {checkExpression(v)};
 
-  expr: primary;
+  expr: command_call
+      | arg;
+
+  # Node:command - fcall/call/yield/super [!null]
+  command: op=operation a=command_args b=cmd_brace_block?-> ^(FCall op a b)
+         | t=value(primary) (."."|"::") op=operation2 a=command_args b=cmd_brace_block?-> ^(Call op t a b)
+         | k(:super) a=command_args -> ^(Super a+)
+         | k(:yield) a=command_args -> ^(Yield a+);
+
+  # Node:command - call with or without block on end [!null]
+  command_call: command
+              | block_command
+              | k(:return) a=call_args -> ^(Return a+);
+              # | k(:break) a=call_args -> ^(Break a+)
+              # | k(:next) a=call_args -> ^(Next a+)
+
+  # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
+  block_command: c=block_call (."."|"::") op=operation2 a=command_args
+                   -> ^(Call op c a)
+               | block_call;
 
   primary: k("begin")! b=bodystmt k("end") -> ^(Begin b)
          | . "(" e=expr . ")" { e }
@@ -95,8 +114,8 @@ parser MirahParser {
            end
            e
          }
-         | a=value(primary) "::" b=constant -> ^(Colon2Const a b)
-         | . "::" c=constant -> ^(Colon3 c)
+         | a=value(primary) "::" b=constant ~(paren_args|call_args) -> ^(Colon2Const a b)
+         | colon3 c=constant -> ^(Colon3 c)
          | . "[" . "]" -> ^(ZArray)
          | . "[" a=args trailer . "]" -> ^(Array a+)
          | . "{" . "}" -> ^(Hash)
@@ -134,9 +153,12 @@ parser MirahParser {
          | Def! name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(Def name args body)
 
-         # | operation brace_block
+         # TODO get do blocks to bind in the right place.
+         # | op=operation iter=brace_block -> ^(FCall op nil iter)
          # | method_call brace_block
-         # | method_call
+
+         | method_call
+
          # | k(:lambda) lambda
 
          | k(:break) -> ^(Break)
@@ -165,50 +187,91 @@ parser MirahParser {
            | &ivar !"formal argument not an instance variable" ?{false}
            | &cvar !"formal argument not a class variable" ?{false};
 
-  f_norm_arg: f_bad_arg | identifier;
+  f_norm_arg: f_bad_arg
+            | l=label t=value(expr) n={List(l).get(1)} { [n, t] }
+            | n=identifier { [n, nil] };
 
-  f_arg_item: ~f_opt n=f_norm_arg t=(":" arg_value)? -> ^(RequiredArgument n t);
+  f_arg_item: ~f_opt n=f_norm_arg -> ^(RequiredArgument n+);
             # | ."(" f_margs .")"
 
   f_arg: h=f_arg_item t=(."," f_arg_item)* {[h] + t};
 
-  f_opt: n=f_norm_arg t=(":" value(expr))? ."="! v=arg_value
-    -> ^(OptArg n v t);
+  f_opt: n=f_norm_arg ."="! v=arg_value l={ n + [v] }-> ^(OptArg l+);
   f_optarg: h=f_opt t=(."," f_opt)* {[h] + t};
 
-  f_rest_arg: ."*" n=f_norm_arg t=(":" value(expr))? -> ^(RestArg n t)
+  f_rest_arg: ."*" n=f_norm_arg -> ^(RestArg n+)
             | ."*" -> ^(UnnamedRestArg);
 
-  f_block_arg: ."&" n=f_norm_arg ."=" !"nil" k(:nil) -> ^(OptBlockArg n)
-             | ."&"! n=f_norm_arg -> ^(BlockArg n);
+  f_block_arg: ."&" n=f_norm_arg ."=" !"nil" k(:nil) -> ^(OptBlockArg n+)
+             | ."&"! n=f_norm_arg -> ^(BlockArg n+);
+
+  block_arg: ."&" v=arg_value -> ^(BlockPass v);
+
+  method_call: op=operation a=paren_args -> ^(FCall op a nil)
+             | t=value(primary) ."." op=operation2 a=opt_paren_args -> ^(Call op t a)
+             | t=value(primary) "::" op=operation2 a=paren_args -> ^(Call op t a)
+             | t=value(primary) "::" op=operation3 -> ^(Call op t nil)
+             | t=value(primary) (."."|"::") a=paren_args -> ^(Call "call" t a)
+             | k(:super) a=paren_args -> ^(Super a+)
+             | k(:super) -> ^(ZSuper)
+             | t=value(primary) ."[" a=call_args? ."]" -> ^(Call "[]" t a);
+
+  # :brace_block - [!null]
+  cmd_brace_block: {__ERROR__};
+  brace_block: ."{" p=block_param? b=compstmt ."}" -> ^(Iter p b)
+             | k(:do) p=block_param? b=compstmt k(:end) -> ^(Iter p b);
+  block_param: {__ERROR__};
+  block_call: {__ERROR__};
+
+  paren_args: ."(" c=call_args? .")" {c.nil? ? Object(ArrayList.new) : c};
+  opt_paren_args: paren_args | ~call_args { nil };
 
   arg: value(primary);
 
   arg_value: a=arg {checkExpression(a)};
 
   trailer: . ("," | nl)?;
+  operation: constant | identifier | fid;
+  operation2: constant | identifier | fid | op;
+  operation3: fid | ~constant identifier | op;
   dot_or_colon: . ("." | "::");
 
-  # TODO splats
-  args: listOf(:arg_value, ",");
+  # This requires beginning of the line or whitespace before the ::, which
+  # isn't quite the same. For example, [def foo()::A] parses differently.
+  colon3: (?{Integer.valueOf(0).equals(col())} | oneOf(" \t\f\r\v")) . "::";
 
-  call_args: args;
+  splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
+  args: h=arg_value t=(."," arg_value)* s=(."," splat)? l={[h]+t} (?{s} l={l+s})? { l }
+      | splat;
+
+  call_assocs: h=assoc t=(."," assoc)* l={ [h] + t } -> ^(Hash l+);
+  call_args: c=command { [c] }
+           | a=args h=(."," call_assocs)? b=(."," block_arg)? l={ a }
+             ( ?{h} l={ a + [h] } )?
+             ( ?{b} l={ l + [b] } )?
+             { l }
+           | h=call_assocs b=(."," block_arg)? l={ [h] }
+             ( ?{b} l={l+[b]} )?
+             { l }
+           | b=block_arg { [b] };
+  command_args: ~(."(") call_args;
 
   lhs: variable;
 
   assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
        | l=label v=arg_value -> ^(Assoc l v);
 
-  label: . n=identifierChar+ ":" -> ^(Symbol join(n));
+  label: . n=identifierChar+ ":" ~":" -> ^(Symbol join(n));
 
   literal: numeric | symbol;
 
   numeric: floatLiteral | fixnum;
 
-  constant: . ~reswords h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
-  identifier: . ~reswords n=identifierChar+ {join(n)};
+  constant: . &upperCase ~reswords ~label h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
+  identifier: . &identifierChar ~reswords ~label n=identifierChar+ {join(n)};
   cvar: . "@@" n=identifierChar+ {join(n)};
   ivar: . "@" n=identifierChar+ {join(n)};
+  fid: . t=identifierChar+ p=oneOf("?!") ~"=" {"#{join(t)}#{p}"};
   fname: . n=identifierChar+ t=( b=oneOf("!?") ~"=" {b}
                                | "=" ~(oneOf("~>=")|"\n>") {"="}
                                | {""})
@@ -224,7 +287,7 @@ parser MirahParser {
        | &identifier !"class/module name must be CONSTANT" ?{false};
 
   # JRuby allows primary_value in cpath. Do we want that?
-  cpath: ."::" n=cname -> ^(Colon3 n)
+  cpath: colon3 n=cname -> ^(Colon3 n)
        | a=(n=cname "::" {n})* b=cname
          (?{List(a).size == 0} {b} |
           names={a+[b]}-> ^(Colon2 names+));
@@ -239,11 +302,11 @@ parser MirahParser {
           | k(:false)                                 -> ^(False)
           | v=cvar                                    -> ^(ClassVar v)
           | . "@" n=identifierChar+                   -> ^(InstVar join(n))
-          | . t=identifierChar+ p=oneOf("?!") ~"="    -> ^(FCall "#{join(t)}#{p}")
+          | n=fid                                     -> ^(FCall n)
           | c=constant                                -> ^(Constant c)
           | n=identifier                              -> ^(Identifier n);
 
-  symbol: . ":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
+  symbol: . ":" ~":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
   string: character
         | strings=string1+ {stringConcat(strings)};
