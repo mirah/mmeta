@@ -48,8 +48,9 @@ parser MirahParser {
   digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                d={[a] + b} { join(d) };
   k keyword=_   : . str(keyword) ~identifierChar {keyword};
-  listOf e=_ s=_: .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
-                | empty                                               { ArrayList.new } ;
+  rlistOf r=_: h=apply(r) t=(."," apply(r))* { [h] + t };
+  listOf e=_: rlistOf(e)
+              | empty                                               { ArrayList.new } ;
 
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
@@ -104,7 +105,8 @@ parser MirahParser {
                    -> ^(Call op c a)
                | block_call;
 
-  primary: k("begin")! b=bodystmt k("end") -> ^(Begin b)
+  primary scope(@BEG)
+         : k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
          | . "(" e=expr . ")" { e }
          | . "(" e=compstmt . ")" {
            unless e.nil?
@@ -114,12 +116,12 @@ parser MirahParser {
            end
            e
          }
-         | a=value(primary) "::" b=constant ~(paren_args|call_args) -> ^(Colon2Const a b)
-         | colon3 c=constant -> ^(Colon3 c)
-         | . "[" . "]" -> ^(ZArray)
-         | . "[" a=args trailer . "]" -> ^(Array a+)
+         | a=value(primary) "::" b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
+         | colon3 c=constant ~assignment_op -> ^(Colon3 c)
+         | isBEG . "[" . "]" -> ^(ZArray)
+         | isBEG . "[" a=args trailer . "]" -> ^(Array a+)
          | . "{" . "}" -> ^(Hash)
-         | . "{" a=listOf(:assoc, ",") trailer . "}" -> ^(Hash a+)
+         | . "{" a=listOf(:assoc) trailer . "}" -> ^(Hash a+)
          | k(:yield) . "(" . ")" -> ^(Yield)
          | k(:yield) . "(" a=call_args . ")" -> ^(Yield a+)
          | k(:yield) -> ^(Yield)
@@ -138,7 +140,7 @@ parser MirahParser {
          # TODO is this too restrictive?
          | k(:for) var=variable k(:in)! list=value(expr) Do body=compstmt k(:end)
            -> ^(For var body list)
-         | k(:class) . "<<"! e=expr  # Should this just allow k(:self)?
+         | k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
            term b=compstmt k(:end) {b ||= @nil}
            -> ^(SClass e b)
          | k(:class)! n=cpath s=superclass
@@ -171,7 +173,7 @@ parser MirahParser {
          | regexp
          | variable;
 
-  f_arglist: ."("! a=f_args .")" {a}
+  f_arglist: ."("! a=f_args .")" BEG {a}
            | a=f_args term {a};
 
   f_args: req=f_arg! opt=(."," f_optarg)? rest=(."," f_rest_arg)? req2=(."," f_arg)? block=(."," f_block_arg)?
@@ -188,16 +190,16 @@ parser MirahParser {
            | &cvar !"formal argument not a class variable" ?{false};
 
   f_norm_arg: f_bad_arg
-            | l=label t=value(expr) n={List(l).get(1)} { [n, t] }
+            | l=label BEG t=value(primary) n={List(l).get(1)} { [n, t] }
             | n=identifier { [n, nil] };
 
   f_arg_item: ~f_opt n=f_norm_arg -> ^(RequiredArgument n+);
             # | ."(" f_margs .")"
 
-  f_arg: h=f_arg_item t=(."," f_arg_item)* {[h] + t};
+  f_arg: rlistOf(:f_arg_item);
 
   f_opt: n=f_norm_arg ."="! v=arg_value l={ n + [v] }-> ^(OptArg l+);
-  f_optarg: h=f_opt t=(."," f_opt)* {[h] + t};
+  f_optarg: rlistOf(:f_opt);
 
   f_rest_arg: ."*" n=f_norm_arg -> ^(RestArg n+)
             | ."*" -> ^(UnnamedRestArg);
@@ -207,14 +209,15 @@ parser MirahParser {
 
   block_arg: ."&" v=arg_value -> ^(BlockPass v);
 
-  method_call: op=operation a=paren_args -> ^(FCall op a nil)
+  method_call scope(@BEG)
+             : op=operation a=paren_args -> ^(FCall op a nil)
              | t=value(primary) ."." op=operation2 a=opt_paren_args -> ^(Call op t a)
              | t=value(primary) "::" op=operation2 a=paren_args -> ^(Call op t a)
-             | t=value(primary) "::" op=operation3 -> ^(Call op t nil)
+             | t=value(primary) "::" op=operation3 ~assignment_op -> ^(Call op t nil)
              | t=value(primary) (."."|"::") a=paren_args -> ^(Call "call" t a)
              | k(:super) a=paren_args -> ^(Super a+)
              | k(:super) -> ^(ZSuper)
-             | t=value(primary) ."[" a=call_args? ."]" -> ^(Call "[]" t a);
+             | t=value(primary) ."[" a=call_args? ."]" ~assignment_op -> ^(Call "[]" t a);
 
   # :brace_block - [!null]
   cmd_brace_block: {__ERROR__};
@@ -224,9 +227,10 @@ parser MirahParser {
   block_call: {__ERROR__};
 
   paren_args: ."(" c=call_args? .")" {c.nil? ? Object(ArrayList.new) : c};
-  opt_paren_args: paren_args | ~call_args { nil };
+  opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
 
-  arg: value(primary);
+  arg: l=lhs ."=" r=arg { n=Ast(Ast(l).clone); n.add(r); n }
+     | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
 
@@ -236,15 +240,18 @@ parser MirahParser {
   operation3: fid | ~constant identifier | op;
   dot_or_colon: . ("." | "::");
 
-  # This requires beginning of the line or whitespace before the ::, which
-  # isn't quite the same. For example, [def foo()::A] parses differently.
-  colon3: (?{Integer.valueOf(0).equals(col())} | oneOf(" \t\f\r\v")) . "::";
+  # This marks the beginning of an expression. It must be used inside
+  # a rule with scope(@BEG).
+  BEG: {@BEG = _pos;nil};
+  isBEG: ( ?{_pos == @BEG} | ?{Integer.valueOf(0).equals(col())}
+         | ?{@begchars.indexOf(_rpeek) >= 0} | oneOf(" \t\f\r\v"));
+  colon3: isBEG . "::";
 
   splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
-  args: h=arg_value t=(."," arg_value)* s=(."," splat)? l={[h]+t} (?{s} l={l+s})? { l }
+  args: l=rlistOf(:arg_value) (."," s=splat {l+s} | { l })
       | splat;
 
-  call_assocs: h=assoc t=(."," assoc)* l={ [h] + t } -> ^(Hash l+);
+  call_assocs scope(@BEG): l=rlistOf(:assoc) -> ^(Hash l+);
   call_args: c=command { [c] }
            | a=args h=(."," call_assocs)? b=(."," block_arg)? l={ a }
              ( ?{h} l={ a + [h] } )?
@@ -256,10 +263,20 @@ parser MirahParser {
            | b=block_arg { [b] };
   command_args: ~(."(") call_args;
 
-  lhs: variable;
+  assignment_op: . ("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
+                   |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>"));
+
+  lhs: t=value(primary) ."[" k=call_args? ."]" -> ^(AttrAssign "[]=" t k)
+     | t=value(primary) (."."|"::") n=constant -> ^(ConstAssign ^(Colon2Const t n))
+     | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
+     | t=value(primary) (."."|"::") n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+     | n=cvar -> ^(ClassVarAssign n)
+     | n=ivar -> ^(InstVarAssign n)
+     | n=constant -> ^(ConstAssign n)
+     | n=identifier -> ^(LocalAssign n);
 
   assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
-       | l=label v=arg_value -> ^(Assoc l v);
+       | l=label BEG v=arg_value -> ^(Assoc l v);
 
   label: . n=identifierChar+ ":" ~":" -> ^(Symbol join(n));
 
@@ -301,53 +318,53 @@ parser MirahParser {
           | k(:true)                                  -> ^(True)
           | k(:false)                                 -> ^(False)
           | v=cvar                                    -> ^(ClassVar v)
-          | . "@" n=identifierChar+                   -> ^(InstVar join(n))
+          | v=ivar                                    -> ^(InstVar v)
           | n=fid                                     -> ^(FCall n)
           | c=constant                                -> ^(Constant c)
           | n=identifier                              -> ^(Identifier n);
 
   symbol: . ":" ~":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
-
+  
   string: character
         | strings=string1+ {stringConcat(strings)};
-
+  
   string1: . "'"! s=squote_contents* "'" -> ^(String join(s))
          | . "\"\"" -> ^(String "")
          | . "\"" s=dquote_contents "\"" {s}
          | . "\""! c=(dquote_contents | str_ev)* "\"" -> ^(DString c+)
          | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
-
+  
   regexp: ."/"! c=(regexp_contents | str_ev)* "/" options=letter*
           -> ^(Regex c join(options));
-
+  
   str_ev: "\#@@"! n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
         | "\#@"! n=identifierChar+ -> ^(EvString ^(InstVar join(n)))
         | "\#{"! c=compstmt "}" -> ^(EvString c);
-
+  
   heredoc_id: "-"? ( "\""! identifierChar+ "\""
                    | "'"! identifierChar+ "'"
                    | identifierChar+
                    ) {text(_start, _pos)};
-
+  
   squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
   dquote_contents: c=(escape | ~("\#{" | "\#@" | "\"")_)+ -> ^(String join(c));
   regexp_contents: c=(re_escape | ~("\#{" | "\#@" | "/")_)+ -> ^(String join(c));
-
+  
   squote_heredoc id=_ : s=(~heredoc_marker(id) _)* heredoc_marker(id) {join(s)};
   dquote_heredoc id=_ : n=( str_ev
                           | s=(~(heredoc_marker(id) | "\#{" | "\#@") _)+
                             -> ^(String join(s))
                           )* heredoc_marker(id) {n};
-
+  
   heredoc_marker c=_ : ?{"\n".equals(text(_pos - 1, _pos))}
                        ( ?{HeredocContext(c).no_indent}
                        | oneOf(" \t\f\r\v")*
                        ) {_str(HeredocContext(c).id)} "\n";
-
+  
   character: . "?" e=escape -> ^(Character getCodePoint(e))
            | . "?" c=codepoint -> ^(Character getCodePoint(c));
-
+  
   escape: unicode_escape
         | "\\"! ("n" {"\n"}
                 |"s" {"\s"}
@@ -361,7 +378,7 @@ parser MirahParser {
                 |"\n" {""}
                 |codepoint
                 );
-
+  
   unicode_escape: "\\" ( "\n" {""}
                        | "\\" {"\\"}
                        | a=oneOf(@OCTAL) b=oneOf(@OCTAL) c=oneOf(@OCTAL)
@@ -374,24 +391,24 @@ parser MirahParser {
                              c5=oneOf(@HEX) c6=oneOf(@HEX) c7=oneOf(@HEX) c8=oneOf(@HEX)
                          {String.new(Character.toChars(Integer.parseInt("#{c1}#{c2}#{c3}#{c4}#{c5}#{c6}#{c7}#{c8}", 16)))}
                        );
-
+  
   re_escape: unicode_escape
            | "\\"! c=codepoint {"\\#{c}"};
-
+  
   Then: . term? k(:then) | . term;
   Ensure: k(:ensure)! compstmt;
   Else: k(:else)! compstmt;
   Do: k(:do) | . term;
   Def: k(:def) ~oneOf("?!");
-
+  
   if_tail: Else
          | k("elsif")! cond=value(expr) Then body=compstmt tail=if_tail
            -> ^(If cond body tail)
          | {nil};
-
-  Rescue: (k("rescue")! c=listOf(:constant, ",") (. "=>" . n=identifier)?
+  
+  Rescue: (k("rescue")! c=listOf(:constant) (. "=>" . n=identifier)?
            Then b=compstmt -> ^(RescueClause c n b))+;
-
+  
   fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
                   | oneOf("dD") d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
                   | oneOf("oO") d=digits(@OCTAL)+ { parseInt(join(d), 8) }
@@ -400,7 +417,7 @@ parser MirahParser {
                   )
             | d=digits(@DECIMAL)+ { parseInt(join(d), 10) }
             ) -> ^(Fixnum n);
-
+  
   floatLiteral: . f=(i=digits(@DECIMAL)+
                      f=("." digits(@DECIMAL)+ | { ArrayList.new })
                      e=(oneOf("eE") digits(@DECIMAL)+ | { ArrayList.new })
@@ -408,20 +425,20 @@ parser MirahParser {
                      s={i+["."]+f+["E"]+e}
                      { Double.new(join(s)) }
                     ) -> ^(Float f);
-
+  
   # Left recursion clears memoization of some values, but heredocs
   # can only be processed once. This rule forces memoization.
   memo rule=_ : position = {Integer.valueOf(_pos)}
                 ( {@memo.get(position) || __ERROR__}
                 | v=apply(rule) { @memo.put(position, v); v });
-
+  
   reswords: k(:__LINE__)|k(:__FILE__)|k(:__ENCODING__)|k(:BEGIN)|k(:END)|k(:alias)
           | k(:and)|k(:begin)|k(:break)|k(:case)|k(:class)|k(:def)|k(:defined)|k(:do)
           | k(:else)|k(:elsif)|k(:end)|k(:ensure)|k(:false)|k(:for)|k(:in)|k(:module)
           | k(:next)|k(:nil)|k(:not)|k(:or)|k(:redo)|k(:rescue)|k(:retry)|k(:return)
           | k(:self)|k(:super)|k(:then)|k(:true)|k(:undef)|k(:when)|k(:yield)|k(:if)
           | k(:unless)|k(:while)|k(:until);
-
+  
   def self.main(args:String[]) {
       returns void
       parser = MirahParser.new
@@ -439,8 +456,10 @@ parser MirahParser {
       end
       puts BaseParser.print_r(parser.parse(builder.toString()))
   }
-
+  
   def initialize {
+    @BEG = 0
+    @begchars = "([{,;=" #}
     @HEX = "0123456789abcdefABCDEF"
     @DECIMAL = "0123456789"
     @OCTAL = "01234567"
@@ -450,12 +469,12 @@ parser MirahParser {
     @nil = Ast.new('Nil')
     @nil.start_position = @nil.end_position = Position.new(0, 0, 0)
   }
-
+  
   def oneOf() {
     chars = String(_pop)
     _char(chars)
   }
-
+  
   def _codepoint() {
     t = _any
     return -1 if t == __ERROR__
@@ -470,7 +489,7 @@ parser MirahParser {
       return int(character)
     end
   }
-
+  
   def codepoint {
     start = _pos
     t = _codepoint
@@ -481,7 +500,7 @@ parser MirahParser {
       return Object(String.new(Character.toChars(t)))
     end
   }
-
+  
   def identifierChar() {
     start = _pos
     c = _codepoint
@@ -492,7 +511,7 @@ parser MirahParser {
       __ERROR__
     end
   }
-
+  
   def upperCase {
     start = _pos
     c = _codepoint
@@ -503,16 +522,16 @@ parser MirahParser {
       __ERROR__
     end
   }
-
+  
   def heredoc {
     # Note: This won't parse if we backtrack over the newline and not
     # the heredoc identifier. However the nl rule should be memoized
     # so we should be safe.
-
+  
     # Set up a new list so nested heredocs match properly.
     heredocs = @heredocs
     @heredocs = LinkedList.new
-
+  
     while heredocs.size > 0
       context = HeredocContext(heredocs.removeFirst)
       _push(context)
@@ -544,11 +563,11 @@ parser MirahParser {
     end
     "\n"
   }
-
+  
   def parseInt(string:string, radix:int) {
     Integer.valueOf(Integer.parseInt(string, radix))
   }
-
+  
   def stringConcat(strings:Object) {
     result = nil
     List(strings).each do |s|
@@ -556,7 +575,7 @@ parser MirahParser {
     end
     return result
   }
-
+  
   def stringConcat(a:Object, b:Object) {
     la = Ast(a)
     lb = Ast(b)
@@ -575,11 +594,11 @@ parser MirahParser {
     result.end_position = lb.end_position
     result
   }
-
+  
   def getCodePoint(c:Object) {
     String(c).codePointAt(0)
   }
-
+  
   def obj2ast(x:Object) {
     if x.kind_of?(Ast)
       Ast(x)
@@ -603,7 +622,7 @@ parser MirahParser {
       raise "Expected Ast, got #{x} (#{x.getClass})"
     end
   }
-
+  
   def addToBlock(a:Object, b:Object) {
     x = obj2ast(a)
     y = obj2ast(b)
@@ -620,7 +639,7 @@ parser MirahParser {
     body.end_position = y.end_position
     body
   }
-
+  
   def checkExpression(e:Object) {
     # TODO actually check
     e || @nil

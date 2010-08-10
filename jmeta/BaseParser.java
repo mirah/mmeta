@@ -336,6 +336,13 @@ public class BaseParser {
         }
     }
 
+    public String _rpeek() {
+      if (_pos == 0 || _string == null) {
+        return null;
+      }
+      return _string.substring(_pos - 1, _pos);
+    }
+
     public Object _peek() {
         if (_string != null)
             if (_pos < _string.length()) return _string.charAt(_pos); else return ERROR;

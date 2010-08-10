@@ -352,6 +352,18 @@ EOF
     assert_parse("[Script, [Yield, [Identifier, x]]]", 'yield x')
     assert_parse("[Script, [Return, [Identifier, x]]]", 'return x')
   end
+
+  def test_lhs
+    assert_parse("[Script, [LocalAssign, a, [Identifier, b]]]", "a = b")
+    assert_parse("[Script, [ConstAssign, A, [Identifier, b]]]", "A = b")
+    assert_parse("[Script, [InstVarAssign, a, [Identifier, b]]]", "@a = b")
+    assert_parse("[Script, [ClassVarAssign, a, [Identifier, b]]]", "@@a = b")
+    assert_parse("[Script, [AttrAssign, []=, [Identifier, a], [[Fixnum, 0]], [Identifier, b]]]", "a[0] = b")
+    assert_parse("[Script, [AttrAssign, foo=, [Identifier, a], [], [Identifier, b]]]", "a.foo = b")
+    assert_parse("[Script, [AttrAssign, foo=, [Identifier, a], [], [Identifier, b]]]", "a::foo = b")
+    assert_parse("[Script, [ConstAssign, [Colon2Const, [Identifier, a], Foo], [Identifier, b]]]", "a::Foo = b")
+    assert_parse("[Script, [ConstAssign, [Colon3, Foo], [Identifier, b]]]", "::Foo = b")
+  end
 end
 __END__
 "int[5]"

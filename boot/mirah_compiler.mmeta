@@ -21,9 +21,11 @@ public parser MMetaCompiler {
       compiler = MMetaCompiler.new
       # compiler.embedded = embed
       parser = JMetaParser.new
+      BaseParser.tracing = false
       ast = parser.parse(input)
-      #puts BaseParser.print_r(ast)
-      #BaseParser.tracing = true
+      BaseParser.tracing = false
+      # puts BaseParser.print_r(ast)
+
       output = String(compiler.parse(ast))
       Utils.writeFile(output_file, output)
       System.exit(0)
@@ -107,7 +109,12 @@ public parser MMetaCompiler {
     };
     App :super rule=_ { "_t=super();" };
     App rule=_ args=trans+ {
-        "_push(ArrayList.new([#{join(args, ", ")}]).toArray); _t=self.#{rule}();"
+        arg_str = if List(args).size == 1
+          join(args, ", ")
+        else
+          "ArrayList.new([#{join(args, ", ")}]).toArray"
+        end
+        "_push(#{arg_str}); _t=self.#{rule}();"
     };
     App rule=_ { rule = "__end__" if "end".equals(rule); "_t=self.#{rule}();" };
 
@@ -131,7 +138,7 @@ public parser MMetaCompiler {
         var = genvar
         err = null
         xs = List(ts)
-        b = "begin; _p#{var}=_pos; _t=__ERROR__; begin  # and\n"
+        b = "begin; _p#{var}=_pos; _t=nil; begin  # and\n"
         xs.each do |x|
           if x.kind_of?(DoError)
             err = DoError(x).message
@@ -168,7 +175,7 @@ public parser MMetaCompiler {
     Many  indent x=trans outdent { makeMany(x, false) } ;
     Many1 indent x=trans outdent { makeMany(x, true)  } ;
 
-    Opt indent x=trans outdent { "#{@_}#{x}\n_t=(_string.nil? ? \"\" : nil) if _t == __ERROR__;" };
+    Opt indent x=trans outdent { "#{x}\n#{@_}_t=(_string.nil? ? \"\" : nil) if _t == __ERROR__;" };
 
     Not x=trans { "#{@_}#{x}\n_t = (_t == __ERROR__ ? Object(Boolean.valueOf(true)) : __ERROR__);"};
 
@@ -194,6 +201,19 @@ public parser MMetaCompiler {
     end while (_t==__GROW__); __ERROR__.last=\"#{n}\" if (_t==__ERROR__); return _t;
   end
 "
+    };
+
+    Scope names=_ indent body=trans outdent {
+      pre = StringBuilder.new
+      post = StringBuilder.new
+      l = Object[].cast(names)
+      l.each do |_name|
+        name = String(_name)
+        saved = "__saved_#{name.replace('@', '')}"
+        pre.append("#@_#{saved} = #{name}\n")
+        post.append("#@_  #{name} = #{saved}\n")
+      end
+      "#{pre}#{@_}begin\n#{@_}#{body}\n#{@_}ensure\n#{post}#{@_}end\n"
     };
 
     Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {

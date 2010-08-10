@@ -22,6 +22,7 @@ task :bootstrap => ['dist/mmeta.jar'] do
 end
 
 file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
+  ENV['BS_CHECK_CLASSES'] = 'true'
   mirahc('jmeta/ast.mirah', :dest => 'build/runtime')
   ant.javac :srcDir=>'jmeta', :destDir=>'build/runtime', :debug=>true
   ant.jar :destfile=>'dist/jmeta-runtime.jar', :basedir=>'build/runtime'

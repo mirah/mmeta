@@ -28,7 +28,7 @@ class Position
     end
 end
 
-class Ast < AbstractList
+class Ast < AbstractList; implements Cloneable
   def initialize(name:String)
     @name = name
     @children = ArrayList.new
@@ -98,5 +98,9 @@ class Ast < AbstractList
 
   def end_position=(position:Position)
     @end = position
+  end
+
+  def clone
+    super()
   end
 end
