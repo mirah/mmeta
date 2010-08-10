@@ -77,10 +77,11 @@ public parser JMetaParser {
                   | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, c]}
                   | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]}
                   | .s=tsString                                         { [:HStr, s] }
-                  | . n=name                                            { [:HLit, n] };
+                  | . n=name                                            { [:HLit, n] }
+                  | ."[" xs=listOf(:rewrite_expr, ",") ."]"             { [:HList] + xs };
 
     simplehost    : rs=simplehost ."+" .ls=simplehost                   { [:HConcat, rs, ls] }
-                  | "[" xs=listOf(:simplehost,",") ."]"               { [:HList] + xs }
+                  | "[" xs=listOf(:simplehost,",") ."]"                 { [:HList] + xs }
                   | .n=number                                           { n }
                   | .("'"!|":") s=name                                  { [:HStr, s] }
                   | .s=tsString                                         { [:HStr, s] }

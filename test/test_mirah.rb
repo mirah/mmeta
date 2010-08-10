@@ -364,6 +364,11 @@ EOF
     assert_parse("[Script, [ConstAssign, [Colon2Const, [Identifier, a], Foo], [Identifier, b]]]", "a::Foo = b")
     assert_parse("[Script, [ConstAssign, [Colon3, Foo], [Identifier, b]]]", "::Foo = b")
   end
+
+  def test_arg
+    assert_parse("[Script, [LocalAssign, a, [Rescue, [Identifier, b], [[RescueClause, [], null, [Identifier, c]]], null]]]",
+                 "a = b rescue c")
+  end
 end
 __END__
 "int[5]"
