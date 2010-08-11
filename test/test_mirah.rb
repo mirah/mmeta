@@ -374,6 +374,16 @@ EOF
                  "a ||= b")
     assert_parse("[Script, [InstVarAssign, a, [Call, +, [InstVar, a], [[Fixnum, 1]]]]]",
                  "@a += 1")
+    assert_parse("[Script, [OpElemAssign, [Identifier, a], -, [[Fixnum, 1]], [Fixnum, 2]]]",
+                 "a[1] -= 2")
+    assert_parse("[Script, [OpAssign, [Identifier, a], foo, /, [Identifier, b]]]",
+                 "a.foo /= b")
+    assert_parse("[Script, [OpAssign, [Identifier, a], foo, *, [Identifier, b]]]",
+                 "a::foo *= b")
+    assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [Identifier, b]]]",
+                 "a.Foo &= b")
+    assert_fails("::A ||= 1")
+    assert_fails("A::B ||= 1")
    end
 end
 __END__

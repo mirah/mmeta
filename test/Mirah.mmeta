@@ -244,6 +244,14 @@ parser MirahParser {
      | l=var_lhs op=assignment_op r=arg
        b= -> ^(Call op gettable2(l) [r])
        assign(l, b)
+     | t=value(primary) ."[" a=call_args? ."]" op=assignment_op v=arg
+       -> ^(OpElemAssign t op a v)
+     | value(primary) "::" constant assignment_op arg
+       !"constant re-assignment prohibited" ?{false}
+     | t=value(primary) (."."|"::") f=identifier op=assignment_op v=arg
+       -> ^(OpAssign t f op v)
+     | colon3 constant assignment_op arg
+       !"constant re-assignment prohibited" ?{false}
      | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
@@ -351,7 +359,7 @@ parser MirahParser {
          | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
 
-  regexp: ."/"! c=(regexp_contents | str_ev)* "/" options=letter*
+  regexp: ."/" c=(regexp_contents | str_ev)* "/" options=letter*
           -> ^(Regex c join(options));
 
   str_ev: "\#@@"! n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
