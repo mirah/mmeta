@@ -228,10 +228,22 @@ parser MirahParser {
   paren_args: ."("! c=call_args? .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
 
-  arg: l=lhs ."=" a=arg k(:rescue) b=value(arg)
-        r= -> ^(Rescue a [^(RescueClause [] nil b)] nil)
-        { n=Ast(Ast(l).clone); n.add(r); n }
-     | l=lhs ."=" r=arg { n=Ast(Ast(l).clone); n.add(r); n }
+  maybe_rescue: a=arg k(:rescue) b=value(arg)
+                -> ^(Rescue a [^(RescueClause [] nil b)] nil)
+              | arg;
+
+  assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
+
+  arg: l=lhs ."=" r=maybe_rescue assign(l, r)
+     | l=var_lhs ."&&=" r=arg
+       b=assign(l, r)
+       -> ^(If gettable2(l) b null)
+     | l=var_lhs ."||=" r=arg
+       b=assign(l, r)
+       -> ^(If gettable2(l) null b)
+     | l=var_lhs op=assignment_op r=arg
+       b= -> ^(Call op gettable2(l) [r])
+       assign(l, b)
      | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
@@ -265,17 +277,19 @@ parser MirahParser {
            | b=block_arg { [b] };
   command_args: ~(."(") call_args;
 
-  assignment_op: . ("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
-                   |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>"));
+  assignment_op: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
+                      |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>") {"="})
+                 {"#{String(op).substring(0, String(op).length - 1)}"};
 
   lhs: t=value(primary) ."[" k=call_args? ."]" -> ^(AttrAssign "[]=" t k)
      | t=value(primary) (."."|"::") n=constant -> ^(ConstAssign ^(Colon2Const t n))
      | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | t=value(primary) (."."|"::") n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
-     | n=cvar -> ^(ClassVarAssign n)
-     | n=ivar -> ^(InstVarAssign n)
-     | n=constant -> ^(ConstAssign n)
-     | n=identifier -> ^(LocalAssign n);
+     | var_lhs;
+  var_lhs: n=cvar -> ^(ClassVarAssign n)
+         | n=ivar -> ^(InstVarAssign n)
+         | n=constant -> ^(ConstAssign n)
+         | n=identifier -> ^(LocalAssign n);
 
   assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
@@ -470,6 +484,12 @@ parser MirahParser {
     @memo = {}
     @nil = Ast.new('Nil')
     @nil.start_position = @nil.end_position = Position.new(0, 0, 0)
+    @lhs_map = {
+      "ConstAssign" => "Constant",
+      "LocalAssign" => "Local",
+      "InstVarAssign" => "InstVar",
+      "ClassVarAssign" => "ClassVar",
+    }
   }
 
   def oneOf() {
@@ -662,5 +682,12 @@ parser MirahParser {
   def checkExpression(e:Object) {
     # TODO actually check
     e || @nil
+  }
+
+  def gettable2(e:Object) {
+    n = Ast(e)
+    n2 = Ast(n.clone)
+    n2.name = String(@lhs_map.get(n.name))
+    n2
   }
 }

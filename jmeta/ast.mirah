@@ -101,6 +101,9 @@ class Ast < AbstractList; implements Cloneable
   end
 
   def clone
-    super()
+    n = Ast.new(name, children)
+    n.start_position = @start
+    n.end_position = @end
+    n
   end
 end

@@ -368,7 +368,13 @@ EOF
   def test_arg
     assert_parse("[Script, [LocalAssign, a, [Rescue, [Identifier, b], [[RescueClause, [], null, [Identifier, c]]], null]]]",
                  "a = b rescue c")
-  end
+    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [Identifier, b]], null]]",
+                 "a &&= b")
+    assert_parse("[Script, [If, [Local, a], null, [LocalAssign, a, [Identifier, b]]]]",
+                 "a ||= b")
+    assert_parse("[Script, [InstVarAssign, a, [Call, +, [InstVar, a], [[Fixnum, 1]]]]]",
+                 "@a += 1")
+   end
 end
 __END__
 "int[5]"
