@@ -382,6 +382,8 @@ EOF
                  "a::foo *= b")
     assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [Identifier, b]]]",
                  "a.Foo &= b")
+    assert_parse("[Script, [If, [Identifier, a], [Identifier, b], [Identifier, c]]]",
+                 "a ? b : c")
     assert_fails("::A ||= 1")
     assert_fails("A::B ||= 1")
    end

@@ -252,6 +252,9 @@ parser MirahParser {
        -> ^(OpAssign t f op v)
      | colon3 constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
+     # ranges?
+     | c=arg ."?" t=arg . nl? .":" e=arg
+       -> ^(If c t e)
      | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
@@ -283,7 +286,7 @@ parser MirahParser {
              ( ?{b} l={l+[b]} )?
              { l }
            | b=block_arg { [b] };
-  command_args: ~(."(") call_args;
+  command_args: ~(."("|character) call_args;
 
   assignment_op: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
                       |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>") {"="})
