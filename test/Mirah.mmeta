@@ -83,7 +83,8 @@ parser MirahParser {
 
   value v=_ : {checkExpression(v)};
 
-  expr: command_call
+  expr: c=variable ."?" t=arg  . nl? . ":" e=arg -> ^(If c t e)
+      | command_call
       | arg;
 
   # Node:command - fcall/call/yield/super [!null]
@@ -268,8 +269,10 @@ parser MirahParser {
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
   BEG: {@BEG = _pos;nil};
-  isBEG: ( ?{_pos == @BEG} | ?{Integer.valueOf(0).equals(col())}
-         | ?{@begchars.indexOf(_rpeek) >= 0} | oneOf(" \t\f\r\v"));
+  isBEG: ( ?{_pos == @BEG}
+         | ?{Integer.valueOf(0).equals(col())}
+         | ?{@begchars.indexOf(_rpeek) >= 0}
+         | oneOf(" \t\f\r\v"));
   colon3: isBEG . "::";
 
   splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
@@ -286,7 +289,7 @@ parser MirahParser {
              ( ?{b} l={l+[b]} )?
              { l }
            | b=block_arg { [b] };
-  command_args: ~(."("|character) call_args;
+  command_args: ~(."(") call_args;
 
   assignment_op: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
                       |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>") {"="})

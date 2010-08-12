@@ -351,6 +351,7 @@ EOF
     assert_parse("[Script, [Super, [Identifier, x]]]", 'super x')
     assert_parse("[Script, [Yield, [Identifier, x]]]", 'yield x')
     assert_parse("[Script, [Return, [Identifier, x]]]", 'return x')
+    assert_parse("[Script, [FCall, a, [[Character, 97]], null]]", 'a ?a')
   end
 
   def test_lhs
