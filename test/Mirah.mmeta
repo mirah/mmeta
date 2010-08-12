@@ -260,7 +260,34 @@ parser MirahParser {
      # ranges?
      | c=arg ."?" t=arg . nl? .":" e=arg
        -> ^(If c t e)
-     | value(primary);
+     | arg2;
+
+  arg2: a=arg2 ."||" b=arg2 -> ^(Or a b)
+      | arg3;
+  arg3: a=arg3 ."&&" b=arg3 -> ^(And a b)
+      | arg4;
+  arg4: a=arg4 . op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") b=arg4
+        -> ^(Call op a [b] nil)
+      | a=arg4 ."!~" b=arg4 -> ^(Not ^(Call "=~" a [b] nil))
+      | arg5;
+  arg5: a=arg5 ."|" b=arg5 -> ^(Call "|" a [b] nil)
+      | a=arg5 ."^" b=arg5 -> ^(Call "^" a [b] nil)
+      | arg6;
+  arg6: a=arg6 ."&" b=arg6 -> ^(Call "&" a [b] nil)
+      | arg7;
+  arg7: a=arg7 . op=("<<<"|"<<"|">>") b=arg7 -> ^(Call op a [b] nil)
+      | arg8;
+  arg8: a=arg8 ."+" b=arg8 -> ^(Call "+" a [b] nil)
+      | a=arg8 ."-" b=arg8 -> ^(Call "-" a [b] nil)
+      | arg9;
+  arg9: a=arg9 . op=oneOf("*/%") b=arg9 -> ^(Call op a [b] nil)
+      | arg10;
+  # TODO uminus
+  arg10: a=arg11 ."**" b=arg10 -> ^(Call "**" a [b] nil)
+       | arg11;
+  arg11: . op=oneOf("!~") v=arg11 -> ^(Call op v)
+       # | uplus v=arg11 -> ^(Call "+@" v [] nil)
+       | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
 

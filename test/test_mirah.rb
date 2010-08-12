@@ -385,6 +385,9 @@ EOF
                  "a.Foo &= b")
     assert_parse("[Script, [If, [Identifier, a], [Identifier, b], [Identifier, c]]]",
                  "a ? b : c")
+    # TODO operators need a ton more testing
+    assert_parse("[Script, [Call, +, [Identifier, a], [[Identifier, b]], null]]",
+                 "a + b")
     assert_fails("::A ||= 1")
     assert_fails("A::B ||= 1")
    end
