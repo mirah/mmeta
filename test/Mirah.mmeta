@@ -83,8 +83,12 @@ parser MirahParser {
 
   value v=_ : {checkExpression(v)};
 
-  expr: c=variable ."?" t=arg  . nl? . ":" e=arg -> ^(If c t e)
+  expr: a=expr k(:and) b=expr -> ^(And a b)
+      | a=expr k(:or) b=expr -> ^(Or a b)
+      | k(:not) e=expr -> ^(Not e)
+      | c=variable ."?" t=arg  . nl? . ":" e=arg -> ^(If c t e)
       | command_call
+      | ."!" e=command_call -> ^(Not e)
       | arg;
 
   # Node:command - fcall/call/yield/super [!null]

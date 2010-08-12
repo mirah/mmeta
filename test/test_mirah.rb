@@ -388,6 +388,17 @@ EOF
     assert_fails("::A ||= 1")
     assert_fails("A::B ||= 1")
    end
+
+   def test_expr
+    assert_parse("[Script, [And, [LocalAssign, a, [Fixnum, 1]], [LocalAssign, b, [Fixnum, 2]]]]",
+                 "a = 1 and b = 2")
+    assert_parse("[Script, [Or, [LocalAssign, a, [Fixnum, 1]], [LocalAssign, b, [Fixnum, 2]]]]",
+                 "a = 1 or b = 2")
+    assert_parse("[Script, [Not, [LocalAssign, a, [Fixnum, 1]]]]",
+                 "not a = 1")
+    assert_parse("[Script, [Not, [FCall, foo, [[Identifier, bar]], null]]]",
+                 "! foo bar")
+   end
 end
 __END__
 "int[5]"
