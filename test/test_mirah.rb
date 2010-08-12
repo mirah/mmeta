@@ -95,6 +95,7 @@ EOF
   end
 
   def test_float
+    assert_parse("[Script, [Float, 1.0]]", "1.0")
     assert_parse("[Script, [Float, 0.0]]", "0e1")
     assert_parse("[Script, [Float, 10.0]]", "1e0_1")
     assert_parse("[Script, [Float, 20.0]]", "0_2e0_1")
@@ -388,6 +389,12 @@ EOF
     # TODO operators need a ton more testing
     assert_parse("[Script, [Call, +, [Identifier, a], [[Identifier, b]], null]]",
                  "a + b")
+    assert_parse("[Script, [Call, -, [Identifier, a], [[Identifier, b]], null]]",
+                 "a - b")
+    assert_parse("[Script, [Fixnum, -1]]", "-1")
+    assert_parse("[Script, [Float, -1.0]]", "-1.0")
+    assert_parse("[Script, [Call, -@, [Identifier, a]]]", "-a")
+    assert_parse("[Script, [Call, +@, [Identifier, a]]]", "+a")
     assert_fails("::A ||= 1")
     assert_fails("A::B ||= 1")
    end

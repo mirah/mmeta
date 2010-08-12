@@ -282,11 +282,14 @@ parser MirahParser {
       | arg9;
   arg9: a=arg9 . op=oneOf("*/%") b=arg9 -> ^(Call op a [b] nil)
       | arg10;
-  # TODO uminus
-  arg10: a=arg11 ."**" b=arg10 -> ^(Call "**" a [b] nil)
+  arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
+       | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
+       | uminus v=arg11 -> ^(Call "-@" v)
        | arg11;
-  arg11: . op=oneOf("!~") v=arg11 -> ^(Call op v)
-       # | uplus v=arg11 -> ^(Call "+@" v [] nil)
+  arg11: a=arg12 ."**" b=arg11 -> ^(Call "**" a [b] nil)
+       | arg12;
+  arg12: . op=oneOf("!~") v=arg12 -> ^(Call op v)
+       | uplus v=arg12 -> ^(Call "+@" v)
        | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
@@ -300,11 +303,14 @@ parser MirahParser {
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
   BEG: {@BEG = _pos;nil};
-  isBEG: ( ?{_pos == @BEG}
-         | ?{Integer.valueOf(0).equals(col())}
-         | ?{@begchars.indexOf(_rpeek) >= 0}
-         | oneOf(" \t\f\r\v"));
+  isBEG: isBEG2 | oneOf(" \t\f\r\v");
+  isBEG2: ?{_pos == @BEG}
+        | ?{Integer.valueOf(0).equals(col())}
+        | ?{@begchars.indexOf(_rpeek) >= 0};
+
   colon3: isBEG . "::";
+  uminus: isBEG2 . "-";
+  uplus: isBEG2 . "+";
 
   splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
   args: l=rlistOf(:arg_value) (."," s=splat {l+s} | { l })
@@ -480,10 +486,10 @@ parser MirahParser {
             ) -> ^(Fixnum n);
 
   floatLiteral: . f=(i=digits(@DECIMAL)+
-                     f=("." digits(@DECIMAL)+ | { ArrayList.new })
-                     e=(oneOf("eE") digits(@DECIMAL)+ | { ArrayList.new })
+                     f=("." digits(@DECIMAL)+ | { [] })
+                     e=(oneOf("eE") digits(@DECIMAL)+ | { [] })
                      ?{List(f).size() + List(e).size() > 0}
-                     s={i+["."]+f+["E"]+e}
+                     s={i+["."]+f+["E0"]+e}
                      { Double.new(join(s)) }
                     ) -> ^(Float f);
 
@@ -734,5 +740,15 @@ parser MirahParser {
     n2 = Ast(n.clone)
     n2.name = String(@lhs_map.get(n.name))
     n2
+  }
+
+  def negateFixnum(f:Object) {
+    n = Integer(Ast(f).get(1)).intValue
+    Integer.valueOf(-n)
+  }
+
+  def negateFloat(f:Object) {
+    d = Double(Ast(f).get(1)).doubleValue
+    Double.valueOf(-d)
   }
 }
