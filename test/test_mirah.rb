@@ -409,6 +409,31 @@ EOF
     assert_parse("[Script, [Not, [FCall, foo, [[Identifier, bar]], null]]]",
                  "! foo bar")
    end
+
+   def test_stmt
+    assert_parse("[Script, [If, [Identifier, b], [Identifier, a], null]]", "a if b")
+    assert_parse("[Script, [If, [Identifier, b], null, [Identifier, a]]]", "a unless b")
+    assert_parse("[Script, [While, [Identifier, b], [Identifier, a]]]", "a while b")
+    assert_parse("[Script, [Until, [Identifier, b], [Identifier, a]]]", "a until b")
+    assert_parse("[Script, [DoWhile, [Identifier, b], [Begin, [Identifier, a]]]]", "begin;a;end while b")
+    assert_parse("[Script, [DoUntil, [Identifier, b], [Begin, [Identifier, a]]]]", "begin;a;end until b")
+    assert_parse("[Script, [Rescue, [Identifier, a], [[RescueClause, [], null, [Identifier, b]]], null]]",
+                 "a rescue b")
+    assert_parse("[Script, [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]]]", "a = foo bar")
+    assert_parse("[Script, [LocalAssign, a, [Call, +, [Local, a], [[FCall, foo, [[Identifier, bar]], null]]]]]", "a += foo bar")
+    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]], null]]",
+                 "a &&= foo bar")
+    assert_parse("[Script, [If, [Local, a], null, [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]]]]",
+                 "a ||= foo bar")
+    assert_parse("[Script, [OpElemAssign, [Identifier, a], -, [[Fixnum, 1]], [FCall, foo, [[Identifier, bar]], null]]]",
+                 "a[1] -= foo bar")
+    assert_parse("[Script, [OpAssign, [Identifier, a], foo, /, [FCall, foo, [[Identifier, bar]], null]]]",
+                 "a.foo /= foo bar")
+    assert_parse("[Script, [OpAssign, [Identifier, a], foo, *, [FCall, foo, [[Identifier, bar]], null]]]",
+                 "a::foo *= foo bar")
+    assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [FCall, foo, [[Identifier, bar]], null]]]",
+                 "a.Foo &= foo bar")
+   end
 end
 __END__
 "int[5]"

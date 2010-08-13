@@ -79,7 +79,32 @@ parser MirahParser {
 
   nl: "\n" heredoc;
 
-  statement: expr;
+  statement: b=statement k(:if) c=value(expr) -> ^(If c b nil)
+           | b=statement k(:unless) c=value(expr) -> ^(If c nil b)
+           | b=statement ?{Ast(b).name.equals("Begin")} k(:while) c=value(expr)
+             -> ^(DoWhile c b)
+           | b=statement ?{Ast(b).name.equals("Begin")} k(:until) c=value(expr)
+             -> ^(DoUntil c b)
+           | b=statement k(:while) c=value(expr) -> ^(While c b)
+           | b=statement k(:until) c=value(expr) -> ^(Until c b)
+           | b=statement k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
+           | l=lhs ."=" r=command_call assign(l, r)
+           | l=var_lhs ."&&=" r=command_call
+             b=assign(l, r)
+             -> ^(If gettable2(l) b null)
+           | l=var_lhs ."||=" r=command_call
+             b=assign(l, r)
+             -> ^(If gettable2(l) null b)
+           | l=var_lhs op=op_assign r=command_call
+             b= -> ^(Call op gettable2(l) [r])
+             assign(l, b)
+           | t=value(primary) ."[" a=call_args? ."]" op=op_assign v=command_call
+             -> ^(OpElemAssign t op a v)
+           | t=value(primary) ."." f=identifier op=op_assign v=command_call
+             -> ^(OpAssign t f op v)
+           | t=value(primary) "::" ~constant f=identifier op=op_assign v=command_call
+             -> ^(OpAssign t f op v)
+           | expr;
 
   value v=_ : {checkExpression(v)};
 
@@ -131,13 +156,13 @@ parser MirahParser {
          | k(:yield) -> ^(Yield)
          | ."!" ."(" .")" -> ^(Call "!" ^(Nil))
          | ."!" ."(" e=value(expr) .")" -> ^(Call "!" e)
-         | k(:if)! cond=value(expr) Then body=compstmt tail=if_tail k(:end)
+         | isBEG2 k(:if)! cond=value(expr) Then body=compstmt tail=if_tail k(:end)
            -> ^(If cond body tail)
-         | k(:unless)! cond=value(expr) Then body=compstmt tail=Else? k(:end)
+         | isBEG2 k(:unless)! cond=value(expr) Then body=compstmt tail=Else? k(:end)
            -> ^(If cond tail body)
-         | k(:while)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:while)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(While cond body)
-         | k(:until)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:until)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(Until cond body)
          # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
          #   -> ^(Case val body)
@@ -328,9 +353,9 @@ parser MirahParser {
            | b=block_arg { [b] };
   command_args: ~(."(") call_args;
 
-  assignment_op: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
-                      |"*="|"&&="|"&="|"^="|">>="|"=" ~oneOf("~=>") {"="})
-                 {"#{String(op).substring(0, String(op).length - 1)}"};
+  op_assign: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
+                  |"*="|"&&="|"&="|"^="|">>=") {"#{String(op).substring(0, String(op).length - 1)}"};
+  assignment_op: op_assign | ."=" ~oneOf("~=>") {"="};
 
   lhs: t=value(primary) ."[" k=call_args? ."]" -> ^(AttrAssign "[]=" t k)
      | t=value(primary) (."."|"::") n=constant -> ^(ConstAssign ^(Colon2Const t n))
