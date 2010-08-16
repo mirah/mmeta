@@ -239,7 +239,9 @@ EOF
     assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], null]]", 'class A;1;end')
     assert_parse("[Script, [Class, [Colon2, [Constant, A], [Constant, B]], [Fixnum, 1], null]]", 'class A::B;1;end')
     assert_parse("[Script, [Class, [Constant, A], [Fixnum, 1], [Constant, B]]]", 'class A < B;1;end')
-#    assert_parse("[Script, [FCall, foo?, null, [Iter, null, [Identifier, x]]]]", "foo? {x}")
+    assert_parse("[Script, [FCall, foo, [], [Iter, null, [Identifier, x]]]]", "foo do;x;end")
+    assert_parse("[Script, [FCall, foo, [], [Iter, null, [Identifier, y]]]]", "foo {y}")
+    assert_parse("[Script, [FCall, foo?, [], [Iter, null, [Identifier, z]]]]", "foo? {z}")
     assert_fails('class a;1;end')
   end
 
@@ -335,13 +337,13 @@ EOF
     assert_parse("[Script, [FCall, foo, [[Hash, [Assoc, [Symbol, c], [Identifier, d]]]], null]]", 'foo(c:d)')
     assert_parse("[Script, [FCall, foo, [[Hash, [Assoc, [Symbol, c], [Identifier, d]]], [BlockPass, [Identifier, e]]], null]]", 'foo(c:d, &e)')
     assert_parse("[Script, [FCall, foo, [[BlockPass, [Identifier, e]]], null]]", 'foo(&e)')
-    assert_parse("[Script, [Call, foo, [Identifier, a], null]]", 'a.foo')
-    assert_parse("[Script, [Call, foo, [Identifier, a], []]]", 'a.foo()')
-    assert_parse("[Script, [Call, Foo, [Identifier, a], []]]", 'a.Foo()')
-    assert_parse("[Script, [Call, <=>, [Identifier, a], null]]", 'a.<=>')
-    assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]]]]", 'Foo::Bar(x)')
-    assert_parse("[Script, [Call, call, [Identifier, a], []]]", 'a.()')
-    assert_parse("[Script, [Super]]", 'super()')
+    assert_parse("[Script, [Call, foo, [Identifier, a], null, null]]", 'a.foo')
+    assert_parse("[Script, [Call, foo, [Identifier, a], [], null]]", 'a.foo()')
+    assert_parse("[Script, [Call, Foo, [Identifier, a], [], null]]", 'a.Foo()')
+    assert_parse("[Script, [Call, <=>, [Identifier, a], null, null]]", 'a.<=>')
+    assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]], null]]", 'Foo::Bar(x)')
+    assert_parse("[Script, [Call, call, [Identifier, a], [], null]]", 'a.()')
+    assert_parse("[Script, [Super, [], null]]", 'super()')
     assert_parse("[Script, [ZSuper]]", 'super')
   end
 
@@ -349,8 +351,8 @@ EOF
     assert_parse("[Script, [FCall, A, [[Identifier, b]], null]]", 'A b')
     assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]], null]]", 'Foo::Bar x')
     assert_parse("[Script, [Call, bar, [Identifier, foo], [[Identifier, x]], null]]", 'foo.bar x')
-    assert_parse("[Script, [Super, [Identifier, x]]]", 'super x')
-    assert_parse("[Script, [Yield, [Identifier, x]]]", 'yield x')
+    assert_parse("[Script, [Super, [[Identifier, x]]]]", 'super x')
+    assert_parse("[Script, [Yield, [[Identifier, x]]]]", 'yield x')
     assert_parse("[Script, [Return, [Identifier, x]]]", 'return x')
     assert_parse("[Script, [FCall, a, [[Character, 97]], null]]", 'a ?a')
   end
@@ -387,9 +389,9 @@ EOF
     assert_parse("[Script, [If, [Identifier, a], [Identifier, b], [Identifier, c]]]",
                  "a ? b : c")
     # TODO operators need a ton more testing
-    assert_parse("[Script, [Call, +, [Identifier, a], [[Identifier, b]], null]]",
+    assert_parse("[Script, [Call, +, [Identifier, a], [[Identifier, b]]]]",
                  "a + b")
-    assert_parse("[Script, [Call, -, [Identifier, a], [[Identifier, b]], null]]",
+    assert_parse("[Script, [Call, -, [Identifier, a], [[Identifier, b]]]]",
                  "a - b")
     assert_parse("[Script, [Fixnum, -1]]", "-1")
     assert_parse("[Script, [Float, -1.0]]", "-1.0")
@@ -434,10 +436,17 @@ EOF
     assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [FCall, foo, [[Identifier, bar]], null]]]",
                  "a.Foo &= foo bar")
    end
+
+   def test_block_args
+     assert_parse("[Script, [FCall, a, [], [Iter, [Arguments, [[RequiredArgument, x, null]], null, null, null, null], [Identifier, x]]]]", "a {|x| x}")
+     assert_parse("[Script, [FCall, a, [], [Iter, [Arguments, null, null, null, null, null], [Identifier, x]]]]", "a {|| x}")
+   end
+
+   def test_block_call
+     assert_parse("[Script, [Call, c, [FCall, a, [], [Iter, null, [Identifier, b]]], null, null]]", "a do;b;end.c")
+     assert_parse("[Script, [Call, c, [FCall, a, [], [Iter, null, [Identifier, b]]], null, null]]", "a {b}.c")
+     assert_parse("[Script, [Super, [[Identifier, a]], [Iter, null, [Identifier, b]]]]", "super a do;b;end")
+     assert_parse("[Script, [Super, [[Call, c, [FCall, a, [], [Iter, null, [Identifier, b]]], null, null]]]]", "super a {b}.c")
+     assert_parse("[Script, [Call, c, [Super, [[Identifier, a]], [Iter, null, [Identifier, b]]], null]]", "super a do;b;end.c")
+   end
 end
-__END__
-"int[5]"
-"a = 1; a"
-"@a = 1; @a"
-"[a = 1, 1]"
-"begin; 2; end until 1"

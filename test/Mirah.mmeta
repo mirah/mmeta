@@ -119,22 +119,22 @@ parser MirahParser {
   # Node:command - fcall/call/yield/super [!null]
   command: op=operation a=command_args b=cmd_brace_block?-> ^(FCall op a b)
          | t=value(primary) (."."|"::") op=operation2 a=command_args b=cmd_brace_block?-> ^(Call op t a b)
-         | k(:super) a=command_args -> ^(Super a+)
-         | k(:yield) a=command_args -> ^(Yield a+);
+         | k(:super) a=command_args -> ^(Super a)
+         | k(:yield) a=command_args -> ^(Yield a);
 
   # Node:command - call with or without block on end [!null]
-  command_call: command
-              | block_command
+  command_call: block_command
+              | command
               | k(:return) a=call_args -> ^(Return a+);
               # | k(:break) a=call_args -> ^(Break a+)
               # | k(:next) a=call_args -> ^(Next a+)
 
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
-  block_command: c=block_call (."."|"::") op=operation2 a=command_args
+  block_command: c=block_command (."."|"::") op=operation2 a=command_args
                    -> ^(Call op c a)
                | block_call;
 
-  primary scope(@BEG)
+  primary scope(@BEG, @cond)
          : k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
          | . "(" e=expr . ")" { e }
          | . "(" e=compstmt . ")" {
@@ -160,14 +160,14 @@ parser MirahParser {
            -> ^(If cond body tail)
          | isBEG2 k(:unless)! cond=value(expr) Then body=compstmt tail=Else? k(:end)
            -> ^(If cond tail body)
-         | isBEG2 k(:while)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:while)! COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(While cond body)
-         | isBEG2 k(:until)! cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:until)! COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(Until cond body)
          # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
          #   -> ^(Case val body)
          # TODO is this too restrictive?
-         | k(:for) var=variable k(:in)! list=value(expr) Do body=compstmt k(:end)
+         | k(:for) var=variable k(:in)! COND list=value(expr) Do body=compstmt k(:end)
            -> ^(For var body list)
          | k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
            term b=compstmt k(:end) {b ||= @nil}
@@ -183,11 +183,6 @@ parser MirahParser {
            -> ^(DefStatic name args body)
          | Def! name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(Def name args body)
-
-         # TODO get do blocks to bind in the right place.
-         # | op=operation iter=brace_block -> ^(FCall op nil iter)
-         # | method_call brace_block
-
          | method_call
 
          # | k(:lambda) lambda
@@ -239,21 +234,29 @@ parser MirahParser {
   block_arg: ."&" v=arg_value -> ^(BlockPass v);
 
   method_call scope(@BEG)
-             : op=operation a=paren_args -> ^(FCall op a nil)
-             | t=value(primary) ."." op=operation2 a=opt_paren_args -> ^(Call op t a)
-             | t=value(primary) "::" op=operation2 a=paren_args -> ^(Call op t a)
-             | t=value(primary) "::" op=operation3 ~assignment_op -> ^(Call op t nil)
-             | t=value(primary) (."."|"::") a=paren_args -> ^(Call "call" t a)
-             | k(:super) a=paren_args -> ^(Super a+)
+             : t=value(primary) ."." op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
+             | t=value(primary) "::" op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
+             | t=value(primary) "::" op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
+             | t=value(primary) (."."|"::") a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
+             | t=value(primary) ."[" a=call_args? ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
+             | k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
+             | k(:super) iter=brace_block -> ^(Super [] iter)
              | k(:super) -> ^(ZSuper)
-             | t=value(primary) ."[" a=call_args? ."]" ~assignment_op -> ^(Call "[]" t a);
+             | op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
+             | op=operation iter=brace_block -> ^(FCall op [] iter);
 
   # :brace_block - [!null]
-  cmd_brace_block: {__ERROR__};
+  cmd_brace_block: brace_block;
   brace_block: ."{" p=block_param? b=compstmt ."}" -> ^(Iter p b)
-             | k(:do) p=block_param? b=compstmt k(:end) -> ^(Iter p b);
-  block_param: {__ERROR__};
-  block_call: {__ERROR__};
+             | do_block("");
+
+  # The argument is a hack to skip memoizing this rule.
+  do_block _ : ~?{@cond} k(:do) p=block_param? b=compstmt k(:end) -> ^(Iter p b);
+
+  # Do we need bv_decls?
+  block_param: ."|" a=f_args ."|" BEG {a};
+  block_call: t=block_call (."."|"::") op=operation2 a=opt_paren_args -> ^(Call op t a)
+            | c=command b=do_block {n=Ast(Ast(c).clone); n.add(b);n};
 
   paren_args: ."("! c=call_args? .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
@@ -292,26 +295,26 @@ parser MirahParser {
   arg3: a=arg3 ."&&" b=arg3 -> ^(And a b)
       | arg4;
   arg4: a=arg4 . op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") b=arg4
-        -> ^(Call op a [b] nil)
-      | a=arg4 ."!~" b=arg4 -> ^(Not ^(Call "=~" a [b] nil))
+        -> ^(Call op a [b])
+      | a=arg4 ."!~" b=arg4 -> ^(Not ^(Call "=~" a [b]))
       | arg5;
-  arg5: a=arg5 ."|" b=arg5 -> ^(Call "|" a [b] nil)
-      | a=arg5 ."^" b=arg5 -> ^(Call "^" a [b] nil)
+  arg5: a=arg5 ."|" b=arg5 -> ^(Call "|" a [b])
+      | a=arg5 ."^" b=arg5 -> ^(Call "^" a [b])
       | arg6;
-  arg6: a=arg6 ."&" b=arg6 -> ^(Call "&" a [b] nil)
+  arg6: a=arg6 ."&" b=arg6 -> ^(Call "&" a [b])
       | arg7;
-  arg7: a=arg7 . op=("<<<"|"<<"|">>") b=arg7 -> ^(Call op a [b] nil)
+  arg7: a=arg7 . op=("<<<"|"<<"|">>") b=arg7 -> ^(Call op a [b])
       | arg8;
-  arg8: a=arg8 ."+" b=arg8 -> ^(Call "+" a [b] nil)
-      | a=arg8 ."-" b=arg8 -> ^(Call "-" a [b] nil)
+  arg8: a=arg8 ."+" b=arg8 -> ^(Call "+" a [b])
+      | a=arg8 ."-" b=arg8 -> ^(Call "-" a [b])
       | arg9;
-  arg9: a=arg9 . op=oneOf("*/%") b=arg9 -> ^(Call op a [b] nil)
+  arg9: a=arg9 . op=oneOf("*/%") b=arg9 -> ^(Call op a [b])
       | arg10;
   arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
        | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
        | uminus v=arg11 -> ^(Call "-@" v)
        | arg11;
-  arg11: a=arg12 ."**" b=arg11 -> ^(Call "**" a [b] nil)
+  arg11: a=arg12 ."**" b=arg11 -> ^(Call "**" a [b])
        | arg12;
   arg12: . op=oneOf("!~") v=arg12 -> ^(Call op v)
        | uplus v=arg12 -> ^(Call "+@" v)
@@ -320,18 +323,22 @@ parser MirahParser {
   arg_value: a=arg {checkExpression(a)};
 
   trailer: . ("," | nl)?;
-  operation: constant | identifier | fid;
-  operation2: constant | identifier | fid | op;
+  operation: fid | constant | identifier;
+  operation2: fid | constant | identifier | op;
   operation3: fid | ~constant identifier | op;
   dot_or_colon: . ("." | "::");
 
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
   BEG: {@BEG = _pos;nil};
-  isBEG: isBEG2 | oneOf(" \t\f\r\v");
-  isBEG2: ?{_pos == @BEG}
-        | ?{Integer.valueOf(0).equals(col())}
-        | ?{@begchars.indexOf(_rpeek) >= 0};
+  isBEG: isBEG_("");  # Hack to skip memoizing this rule
+  isBEG_ _: isBEG2_("") | oneOf(" \t\f\r\v");
+  isBEG2: isBEG2_("");  # Hack to skip memoizing this rule
+  isBEG2_ _: ?{_pos == @BEG}
+           | ?{Integer.valueOf(0).equals(col())}
+           | ?{@begchars.indexOf(_rpeek) >= 0};
+  COND: {@cond = true;nil};
+  UNCOND: {@cond = false;nil};
 
   colon3: isBEG . "::";
   uminus: isBEG2 . "-";
@@ -351,7 +358,7 @@ parser MirahParser {
              ( ?{b} l={l+[b]} )?
              { l }
            | b=block_arg { [b] };
-  command_args: ~(."(") call_args;
+  command_args scope(@cond): ~(."(") COND call_args;
 
   op_assign: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
                   |"*="|"&&="|"&="|"^="|">>=") {"#{String(op).substring(0, String(op).length - 1)}"};
@@ -455,7 +462,7 @@ parser MirahParser {
                        ) {_str(HeredocContext(c).id)} "\n";
 
   character: . "?" e=escape -> ^(Character getCodePoint(e))
-           | . "?" c=codepoint -> ^(Character getCodePoint(c));
+           | . "?" ~oneOf(" \t\f\r\v\n") c=codepoint -> ^(Character getCodePoint(c));
 
   escape: unicode_escape
         | "\\"! ("n" {"\n"}
@@ -490,7 +497,7 @@ parser MirahParser {
   Then: . term? k(:then) | . term;
   Ensure: k(:ensure)! compstmt;
   Else: k(:else)! compstmt;
-  Do: k(:do) | . term;
+  Do: (k(:do) | . term) UNCOND;
   Def: k(:def) ~oneOf("?!");
 
   if_tail: Else
@@ -534,7 +541,7 @@ parser MirahParser {
   def self.main(args:String[]) {
       returns void
       parser = MirahParser.new
-      BaseParser.tracing = true
+      #BaseParser.tracing = true
       if args.length > 0
         stream = InputStream(FileInputStream.new(args[0]))
       else
