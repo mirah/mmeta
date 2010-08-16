@@ -336,7 +336,7 @@ parser MirahParser {
   isBEG2: isBEG2_("");  # Hack to skip memoizing this rule
   isBEG2_ _: ?{_pos == @BEG}
            | ?{Integer.valueOf(0).equals(col())}
-           | ?{@begchars.indexOf(_rpeek) >= 0};
+           | ?{@begchars.indexOf(_rpeek) > 0};
   COND: {@cond = true;nil};
   UNCOND: {@cond = false;nil};
 
@@ -531,19 +531,26 @@ parser MirahParser {
                 ( {@memo.get(position) || __ERROR__}
                 | v=apply(rule) { @memo.put(position, v); v });
 
-  reswords: k(:__LINE__)|k(:__FILE__)|k(:__ENCODING__)|k(:BEGIN)|k(:END)|k(:alias)
+  reswords: ?{_rpeek.indexOf(".") == -1}
+          ( k(:__LINE__)|k(:__FILE__)|k(:__ENCODING__)|k(:BEGIN)|k(:END)|k(:alias)
           | k(:and)|k(:begin)|k(:break)|k(:case)|k(:class)|k(:def)|k(:defined)|k(:do)
           | k(:else)|k(:elsif)|k(:end)|k(:ensure)|k(:false)|k(:for)|k(:in)|k(:module)
           | k(:next)|k(:nil)|k(:not)|k(:or)|k(:redo)|k(:rescue)|k(:retry)|k(:return)
           | k(:self)|k(:super)|k(:then)|k(:true)|k(:undef)|k(:when)|k(:yield)|k(:if)
-          | k(:unless)|k(:while)|k(:until);
+          | k(:unless)|k(:while)|k(:until)
+          );
 
   def self.main(args:String[]) {
       returns void
       parser = MirahParser.new
-      #BaseParser.tracing = true
-      if args.length > 0
-        stream = InputStream(FileInputStream.new(args[0]))
+      argc = args.length
+      if args[0].equals "-v"
+        BaseParser.tracing = true
+        argc -= 1
+      end
+      if argc > 0
+        filename = args[args.length - 1]
+        stream = InputStream(FileInputStream.new(filename))
       else
         stream = System.in
       end
@@ -558,7 +565,7 @@ parser MirahParser {
 
   def initialize {
     @BEG = 0
-    @begchars = "([{,;=" #}
+    @begchars = " ([{,;=" #}
     @HEX = "0123456789abcdefABCDEF"
     @DECIMAL = "0123456789"
     @OCTAL = "01234567"

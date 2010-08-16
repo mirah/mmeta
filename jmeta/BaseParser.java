@@ -338,7 +338,7 @@ public class BaseParser {
 
     public String _rpeek() {
       if (_pos == 0 || _string == null) {
-        return null;
+        return "";
       }
       return _string.substring(_pos - 1, _pos);
     }
