@@ -381,14 +381,15 @@ parser MirahParser {
   assoc: a=arg_value . "=>" opt_nl b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
 
-  label: . n=identifierChar+ ":" ~":" opt_nl -> ^(Symbol join(n));
+  label: . n=identifier2 ":" ~":" opt_nl -> ^(Symbol n);
 
   literal: numeric | symbol;
 
   numeric: floatLiteral | fixnum;
 
   constant: . &upperCase ~reswords ~label h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
-  identifier: . &identifierChar ~reswords ~label n=identifierChar+ {join(n)};
+  identifier: . &identifierStart ~reswords ~label identifier2;
+  identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
   cvar: . "@@" n=identifierChar+ {join(n)};
   ivar: . "@" n=identifierChar+ {join(n)};
   fid: . t=identifierChar+ p=oneOf("?!") ~"=" {"#{join(t)}#{p}"};
@@ -438,7 +439,7 @@ parser MirahParser {
          | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
 
-  regexp: ."/" c=(regexp_contents | str_ev)* "/" options=letter*
+  regexp: isBEG2 ."/" c=(regexp_contents | str_ev)* "/" options=letter*
           -> ^(Regex c join(options));
 
   str_ev: "\#@@"! n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
@@ -631,6 +632,17 @@ parser MirahParser {
     start = _pos
     c = _codepoint
     if c == 95 || Character.isLetterOrDigit(c)
+      Object(String.new(Character.toChars(c)))
+    else
+      self._pos = start
+      __ERROR__
+    end
+  }
+
+  def identifierStart {
+    start = _pos
+    c = _codepoint
+    if c == 95 || Character.isLetter(c)
       Object(String.new(Character.toChars(c)))
     else
       self._pos = start
