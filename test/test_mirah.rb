@@ -450,4 +450,9 @@ EOF
      assert_parse("[Script, [Super, [[Call, c, [FCall, a, [], [Iter, null, [Identifier, b]]], null, null]]]]", "super a {b}.c")
      assert_parse("[Script, [Call, c, [Super, [[Identifier, a]], [Iter, null, [Identifier, b]]], null]]", "super a do;b;end.c")
    end
+
+   def test_opt_nl
+     assert_parse("[Script, [Hash, [Assoc, [String, a], [String, b]], [Assoc, [Symbol, c], [Identifier, d]]]]",
+                  "{\n'a' => 'b', c:\nd\n}")
+   end
 end

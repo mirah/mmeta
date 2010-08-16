@@ -47,7 +47,7 @@ public class HeredocContext {
 parser MirahParser {
   digits x=_ : a = oneOf(x) b=("_" c=oneOf(x) {c})*
                                d={[a] + b} { join(d) };
-  rlistOf r=_: h=apply(r) t=(."," apply(r))* { [h] + t };
+  rlistOf r=_: h=apply(r) t=(comma apply(r))* { [h] + t };
   listOf e=_: rlistOf(e)
               | empty                                               { ArrayList.new } ;
 
@@ -89,36 +89,36 @@ parser MirahParser {
            | b=statement k(:until) c=value(expr) -> ^(Until c b)
            | b=statement k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
            | l=lhs ."=" r=command_call assign(l, r)
-           | l=var_lhs ."&&=" r=command_call
+           | l=var_lhs ."&&=" opt_nl r=command_call
              b=assign(l, r)
              -> ^(If gettable2(l) b null)
-           | l=var_lhs ."||=" r=command_call
+           | l=var_lhs ."||=" opt_nl r=command_call
              b=assign(l, r)
              -> ^(If gettable2(l) null b)
            | l=var_lhs op=op_assign r=command_call
              b= -> ^(Call op gettable2(l) [r])
              assign(l, b)
-           | t=value(primary) ."[" a=call_args? ."]" op=op_assign v=command_call
+           | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
              -> ^(OpElemAssign t op a v)
-           | t=value(primary) ."." f=identifier op=op_assign v=command_call
+           | t=value(primary) dot f=identifier op=op_assign v=command_call
              -> ^(OpAssign t f op v)
-           | t=value(primary) "::" ~constant f=identifier op=op_assign v=command_call
+           | t=value(primary) colons ~constant f=identifier op=op_assign v=command_call
              -> ^(OpAssign t f op v)
            | expr;
 
   value v=_ : {checkExpression(v)};
 
-  expr: a=expr k(:and) b=expr -> ^(And a b)
-      | a=expr k(:or) b=expr -> ^(Or a b)
-      | k(:not) e=expr -> ^(Not e)
-      | c=variable ."?" t=arg  . nl? . ":" e=arg -> ^(If c t e)
+  expr: a=expr k(:and) opt_nl b=expr -> ^(And a b)
+      | a=expr k(:or) opt_nl b=expr -> ^(Or a b)
+      | k(:not) opt_nl e=expr -> ^(Not e)
+      | c=variable ."?" opt_nl t=arg opt_nl . ":" opt_nl e=arg -> ^(If c t e)
       | command_call
       | ."!" e=command_call -> ^(Not e)
       | arg;
 
   # Node:command - fcall/call/yield/super [!null]
   command: op=operation a=command_args b=cmd_brace_block?-> ^(FCall op a b)
-         | t=value(primary) (."."|"::") op=operation2 a=command_args b=cmd_brace_block?-> ^(Call op t a b)
+         | t=value(primary) dot_or_colon op=operation2 a=command_args b=cmd_brace_block?-> ^(Call op t a b)
          | k(:super) a=command_args -> ^(Super a)
          | k(:yield) a=command_args -> ^(Yield a);
 
@@ -130,14 +130,14 @@ parser MirahParser {
               # | k(:next) a=call_args -> ^(Next a+)
 
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
-  block_command: c=block_command (."."|"::") op=operation2 a=command_args
+  block_command: c=block_command dot_or_colon op=operation2 a=command_args
                    -> ^(Call op c a)
                | block_call;
 
   primary scope(@BEG, @cond)
          : k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
-         | . "(" e=expr . ")" { e }
-         | . "(" e=compstmt . ")" {
+         | . "(" opt_nl e=expr opt_nl . ")" { e }
+         | . "(" opt_nl e=compstmt opt_nl . ")" {
            unless e.nil?
              ae = Ast(e)
              ae.start_position = pos(_start)
@@ -145,29 +145,29 @@ parser MirahParser {
            end
            e
          }
-         | a=value(primary) "::" b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
+         | a=value(primary) colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
          | colon3 c=constant ~assignment_op -> ^(Colon3 c)
-         | isBEG . "[" . "]" -> ^(ZArray)
-         | isBEG . "[" a=args trailer . "]" -> ^(Array a+)
-         | . "{" . "}" -> ^(Hash)
-         | . "{" a=listOf(:assoc) trailer . "}" -> ^(Hash a+)
-         | k(:yield) . "(" . ")" -> ^(Yield)
-         | k(:yield) . "(" a=call_args . ")" -> ^(Yield a+)
+         | isBEG . "[" opt_nl . "]" -> ^(ZArray)
+         | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+)
+         | . "{" opt_nl . "}" -> ^(Hash)
+         | . "{" opt_nl a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+)
+         | k(:yield) . "(" opt_nl . ")" -> ^(Yield)
+         | k(:yield) . "(" opt_nl a=call_args opt_nl . ")" -> ^(Yield a+)
          | k(:yield) -> ^(Yield)
-         | ."!" ."(" .")" -> ^(Call "!" ^(Nil))
-         | ."!" ."(" e=value(expr) .")" -> ^(Call "!" e)
-         | isBEG2 k(:if)! cond=value(expr) Then body=compstmt tail=if_tail k(:end)
+         | ."!" ."(" opt_nl .")" -> ^(Call "!" ^(Nil))
+         | ."!" ."(" opt_nl e=value(expr) opt_nl .")" -> ^(Call "!" e)
+         | isBEG2 k(:if)! opt_nl cond=value(expr) Then body=compstmt tail=if_tail k(:end)
            -> ^(If cond body tail)
-         | isBEG2 k(:unless)! cond=value(expr) Then body=compstmt tail=Else? k(:end)
+         | isBEG2 k(:unless)! opt_nl cond=value(expr) Then body=compstmt tail=Else? k(:end)
            -> ^(If cond tail body)
-         | isBEG2 k(:while)! COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:while)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(While cond body)
-         | isBEG2 k(:until)! COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         | isBEG2 k(:until)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
            -> ^(Until cond body)
          # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
          #   -> ^(Case val body)
          # TODO is this too restrictive?
-         | k(:for) var=variable k(:in)! COND list=value(expr) Do body=compstmt k(:end)
+         | k(:for)! opt_nl var=variable k(:in) opt_nl COND list=value(expr) Do body=compstmt k(:end)
            -> ^(For var body list)
          | k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
            term b=compstmt k(:end) {b ||= @nil}
@@ -179,7 +179,7 @@ parser MirahParser {
            k(:end) {b ||= @nil}
            -> ^(Class n b s)
          # | module
-         | Def k(:self)! dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
+         | Def k(:self)! . dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(DefStatic name args body)
          | Def! name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(Def name args body)
@@ -197,9 +197,10 @@ parser MirahParser {
          | regexp
          | variable;
 
-  f_arglist: ."("! a=f_args .")" BEG {a}
+  f_arglist: ."("! opt_nl a=f_args opt_nl .")" BEG {a}
            | a=f_args term {a};
 
+  comma: ."," opt_nl;
   f_args: req=f_arg! opt=(."," f_optarg)? rest=(."," f_rest_arg)? req2=(."," f_arg)? block=(."," f_block_arg)?
             -> ^(Arguments req opt rest req2 block)
         | opt=f_optarg! rest=(."," f_rest_arg)? req=(."," f_arg)? block=(."," f_block_arg)?
@@ -234,11 +235,11 @@ parser MirahParser {
   block_arg: ."&" v=arg_value -> ^(BlockPass v);
 
   method_call scope(@BEG)
-             : t=value(primary) ."." op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
-             | t=value(primary) "::" op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
-             | t=value(primary) "::" op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
-             | t=value(primary) (."."|"::") a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
-             | t=value(primary) ."[" a=call_args? ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
+             : t=value(primary) dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
+             | t=value(primary) colons op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
+             | t=value(primary) colons op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
+             | t=value(primary) dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
+             | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
              | k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
              | k(:super) iter=brace_block -> ^(Super [] iter)
              | k(:super) -> ^(ZSuper)
@@ -247,18 +248,18 @@ parser MirahParser {
 
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
-  brace_block: ."{" p=block_param? b=compstmt ."}" -> ^(Iter p b)
+  brace_block: ."{" opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
              | do_block("");
 
   # The argument is a hack to skip memoizing this rule.
-  do_block _ : ~?{@cond} k(:do) p=block_param? b=compstmt k(:end) -> ^(Iter p b);
+  do_block _ : ~?{@cond} k(:do) opt_nl p=block_param? b=compstmt k(:end) -> ^(Iter p b);
 
   # Do we need bv_decls?
-  block_param: ."|" a=f_args ."|" BEG {a};
-  block_call: t=block_call (."."|"::") op=operation2 a=opt_paren_args -> ^(Call op t a)
+  block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
+  block_call: t=block_call dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op t a)
             | c=command b=do_block {n=Ast(Ast(c).clone); n.add(b);n};
 
-  paren_args: ."("! c=call_args? .")" {c.nil? ? Object(ArrayList.new) : c};
+  paren_args: ."("! opt_nl c=call_args? opt_nl .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
 
   maybe_rescue: a=arg k(:rescue) b=value(arg)
@@ -268,55 +269,55 @@ parser MirahParser {
   assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
 
   arg: l=lhs ."=" r=maybe_rescue assign(l, r)
-     | l=var_lhs ."&&=" r=arg
+     | l=var_lhs ."&&=" opt_nl r=arg
        b=assign(l, r)
        -> ^(If gettable2(l) b null)
-     | l=var_lhs ."||=" r=arg
+     | l=var_lhs ."||=" opt_nl r=arg
        b=assign(l, r)
        -> ^(If gettable2(l) null b)
      | l=var_lhs op=assignment_op r=arg
        b= -> ^(Call op gettable2(l) [r])
        assign(l, b)
-     | t=value(primary) ."[" a=call_args? ."]" op=assignment_op v=arg
+     | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
        -> ^(OpElemAssign t op a v)
-     | value(primary) "::" constant assignment_op arg
+     | value(primary) colons constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
-     | t=value(primary) (."."|"::") f=identifier op=assignment_op v=arg
+     | t=value(primary) dot_or_colon f=identifier op=assignment_op v=arg
        -> ^(OpAssign t f op v)
      | colon3 constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
      # ranges?
-     | c=arg ."?" t=arg . nl? .":" e=arg
+     | c=arg ."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
        -> ^(If c t e)
      | arg2;
 
-  arg2: a=arg2 ."||" b=arg2 -> ^(Or a b)
+  arg2: a=arg2 ."||" opt_nl b=arg2 -> ^(Or a b)
       | arg3;
-  arg3: a=arg3 ."&&" b=arg3 -> ^(And a b)
+  arg3: a=arg3 ."&&" opt_nl b=arg3 -> ^(And a b)
       | arg4;
-  arg4: a=arg4 . op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") b=arg4
+  arg4: a=arg4 . op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
         -> ^(Call op a [b])
-      | a=arg4 ."!~" b=arg4 -> ^(Not ^(Call "=~" a [b]))
+      | a=arg4 ."!~" opt_nl b=arg4 -> ^(Not ^(Call "=~" a [b]))
       | arg5;
-  arg5: a=arg5 ."|" b=arg5 -> ^(Call "|" a [b])
-      | a=arg5 ."^" b=arg5 -> ^(Call "^" a [b])
+  arg5: a=arg5 ."|" opt_nl b=arg5 -> ^(Call "|" a [b])
+      | a=arg5 ."^" opt_nl b=arg5 -> ^(Call "^" a [b])
       | arg6;
-  arg6: a=arg6 ."&" b=arg6 -> ^(Call "&" a [b])
+  arg6: a=arg6 ."&" opt_nl b=arg6 -> ^(Call "&" a [b])
       | arg7;
-  arg7: a=arg7 . op=("<<<"|"<<"|">>") b=arg7 -> ^(Call op a [b])
+  arg7: a=arg7 . op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b])
       | arg8;
-  arg8: a=arg8 ."+" b=arg8 -> ^(Call "+" a [b])
-      | a=arg8 ."-" b=arg8 -> ^(Call "-" a [b])
+  arg8: a=arg8 ."+" opt_nl b=arg8 -> ^(Call "+" a [b])
+      | a=arg8 ."-" opt_nl b=arg8 -> ^(Call "-" a [b])
       | arg9;
-  arg9: a=arg9 . op=oneOf("*/%") b=arg9 -> ^(Call op a [b])
+  arg9: a=arg9 . op=oneOf("*/%") opt_nl b=arg9 -> ^(Call op a [b])
       | arg10;
   arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
        | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
        | uminus v=arg11 -> ^(Call "-@" v)
        | arg11;
-  arg11: a=arg12 ."**" b=arg11 -> ^(Call "**" a [b])
+  arg11: a=arg12 ."**" opt_nl b=arg11 -> ^(Call "**" a [b])
        | arg12;
-  arg12: . op=oneOf("!~") v=arg12 -> ^(Call op v)
+  arg12: . op=oneOf("!~") opt_nl v=arg12 -> ^(Call op v)
        | uplus v=arg12 -> ^(Call "+@" v)
        | value(primary);
 
@@ -326,7 +327,10 @@ parser MirahParser {
   operation: fid | constant | identifier;
   operation2: fid | constant | identifier | op;
   operation3: fid | ~constant identifier | op;
-  dot_or_colon: . ("." | "::");
+  dot: ."." opt_nl;
+  colons: "::" opt_nl;
+  dot_or_colon: dot | colons;
+  opt_nl: (. nl)*;
 
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
@@ -340,44 +344,44 @@ parser MirahParser {
   COND: {@cond = true;nil};
   UNCOND: {@cond = false;nil};
 
-  colon3: isBEG . "::";
-  uminus: isBEG2 . "-";
-  uplus: isBEG2 . "+";
+  colon3: isBEG . "::" opt_nl;
+  uminus: isBEG2 . "-"  opt_nl;
+  uplus: isBEG2 . "+" opt_nl;
 
   splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
-  args: l=rlistOf(:arg_value) (."," s=splat {l+s} | { l })
+  args: l=rlistOf(:arg_value) (comma s=splat {l+s} | { l })
       | splat;
 
   call_assocs scope(@BEG): l=rlistOf(:assoc) -> ^(Hash l+);
   call_args: c=command { [c] }
-           | a=args h=(."," call_assocs)? b=(.","! block_arg)? l={ a }
+           | a=args h=(comma call_assocs)? b=(comma! block_arg)? l={ a }
              ( ?{h} l={ a + [h] } )?
              ( ?{b} l={ l + [b] } )?
              { l }
-           | h=call_assocs b=(.","! block_arg)? l={ [h] }
+           | h=call_assocs b=(comma! block_arg)? l={ [h] }
              ( ?{b} l={l+[b]} )?
              { l }
            | b=block_arg { [b] };
   command_args scope(@cond): ~(."(") COND call_args;
 
   op_assign: . op=("<<="|"<<<="|"-="|"%="|"||="|"|="|"+="|"/="|"**="
-                  |"*="|"&&="|"&="|"^="|">>=") {"#{String(op).substring(0, String(op).length - 1)}"};
-  assignment_op: op_assign | ."=" ~oneOf("~=>") {"="};
+                  |"*="|"&&="|"&="|"^="|">>=") opt_nl {"#{String(op).substring(0, String(op).length - 1)}"};
+  assignment_op: op_assign | ."=" ~oneOf("~=>") opt_nl {"="};
 
-  lhs: t=value(primary) ."[" k=call_args? ."]" -> ^(AttrAssign "[]=" t k)
-     | t=value(primary) (."."|"::") n=constant -> ^(ConstAssign ^(Colon2Const t n))
+  lhs: t=value(primary) ."[" opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
+     | t=value(primary) dot_or_colon n=constant -> ^(ConstAssign ^(Colon2Const t n))
      | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
-     | t=value(primary) (."."|"::") n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+     | t=value(primary) dot_or_colon n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
      | var_lhs;
   var_lhs: n=cvar -> ^(ClassVarAssign n)
          | n=ivar -> ^(InstVarAssign n)
          | n=constant -> ^(ConstAssign n)
          | n=identifier -> ^(LocalAssign n);
 
-  assoc: a=arg_value . "=>" b=arg_value -> ^(Assoc a b)
+  assoc: a=arg_value . "=>" opt_nl b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
 
-  label: . n=identifierChar+ ":" ~":" -> ^(Symbol join(n));
+  label: . n=identifierChar+ ":" ~":" opt_nl -> ^(Symbol join(n));
 
   literal: numeric | symbol;
 
@@ -404,7 +408,7 @@ parser MirahParser {
 
   # JRuby allows primary_value in cpath. Do we want that?
   cpath: colon3 n=cname -> ^(Colon3 n)
-       | a=(n=cname "::" {n})* b=cname
+       | a=(n=cname colons {n})* b=cname
          (?{List(a).size == 0} {b} |
           names={a+[b]}-> ^(Colon2 names+));
 
@@ -501,11 +505,11 @@ parser MirahParser {
   Def: k(:def) ~oneOf("?!");
 
   if_tail: Else
-         | k("elsif")! cond=value(expr) Then body=compstmt tail=if_tail
+         | k("elsif")! opt_nl cond=value(expr) Then body=compstmt tail=if_tail
            -> ^(If cond body tail)
          | {nil};
 
-  Rescue: (k("rescue")! c=listOf(:constant) (. "=>" . n=identifier)?
+  Rescue: (k("rescue")! c=listOf(:constant) (. "=>" opt_nl . n=identifier)?
            Then b=compstmt -> ^(RescueClause c n b))+;
 
   fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
@@ -554,13 +558,23 @@ parser MirahParser {
       else
         stream = System.in
       end
-      reader = BufferedReader.new(InputStreamReader.new(stream))
-      buffer = char[8192]
-      builder = StringBuilder.new
-      while (read = reader.read(buffer, 0, buffer.length)) > 0
-        builder.append(buffer, 0, read);
+      begin
+        reader = BufferedReader.new(InputStreamReader.new(stream))
+        buffer = char[8192]
+        builder = StringBuilder.new
+        while (read = reader.read(buffer, 0, buffer.length)) > 0
+          builder.append(buffer, 0, read);
+        end
+        puts BaseParser.print_r(parser.parse(builder.toString()))
+      ensure
+        mb = 1024 * 1024
+        runtime = Runtime.getRuntime
+        puts "##### Heap utilization statistics [MB] #####"
+        puts "Used Memory: #{(runtime.totalMemory - runtime.freeMemory) / mb}"
+        puts "Total Memory: #{runtime.totalMemory / mb}"
+        puts "Free Memory: #{runtime.freeMemory / mb}"
+        puts "Max Memory: #{runtime.maxMemory / mb}"
       end
-      puts BaseParser.print_r(parser.parse(builder.toString()))
   }
 
   def initialize {
