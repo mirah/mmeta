@@ -135,7 +135,10 @@ parser MirahParser {
                | block_call;
 
   primary scope(@BEG, @cond)
-         : k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
+         : a=value(primary) colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
+         | colon3 c=constant ~assignment_op -> ^(Colon3 c)
+         | method_call
+         | k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
          | . "(" opt_nl e=expr opt_nl . ")" { e }
          | . "(" opt_nl e=compstmt opt_nl . ")" {
            unless e.nil?
@@ -145,8 +148,6 @@ parser MirahParser {
            end
            e
          }
-         | a=value(primary) colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
-         | colon3 c=constant ~assignment_op -> ^(Colon3 c)
          | isBEG . "[" opt_nl . "]" -> ^(ZArray)
          | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+)
          | . "{" opt_nl . "}" -> ^(Hash)
@@ -183,7 +184,6 @@ parser MirahParser {
            -> ^(DefStatic name args body)
          | Def! name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(Def name args body)
-         | method_call
 
          # | k(:lambda) lambda
 

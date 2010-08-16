@@ -344,6 +344,7 @@ EOF
     assert_parse("[Script, [Call, Bar, [Constant, Foo], [[Identifier, x]], null]]", 'Foo::Bar(x)')
     assert_parse("[Script, [Call, call, [Identifier, a], [], null]]", 'a.()')
     assert_parse("[Script, [Call, in, [Constant, System], null, null]]", "System.in")
+    assert_parse("[Script, [Call, each, [Array, [Identifier, la], [Identifier, lb]], null, null]]", "[la, lb].each")
     assert_parse("[Script, [Super, [], null]]", 'super()')
     assert_parse("[Script, [ZSuper]]", 'super')
   end
