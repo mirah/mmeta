@@ -426,7 +426,7 @@ parser MirahParser {
           | c=constant                                -> ^(Constant c)
           | n=identifier                              -> ^(Identifier n);
 
-  symbol: . ":" ~":"! v=("@@" | "@" | {""}) ! n=identifierChar+ -> ^(Symbol join(concat([v], n)));
+  symbol: . ":" ~":" v=("@@" | "@" | {""}) n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
   string: character
         | strings=string1+ {stringConcat(strings)};

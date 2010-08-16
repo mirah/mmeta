@@ -412,6 +412,7 @@ EOF
                  "not a = 1")
     assert_parse("[Script, [Not, [FCall, foo, [[Identifier, bar]], null]]]",
                  "! foo bar")
+    assert_parse("[Script, [If, [Identifier, a], [Call, children, [Identifier, x], null, null], [Array, [Identifier, x]]]]", "a ? x.children : [x]")
    end
 
    def test_stmt
