@@ -163,7 +163,12 @@ public parser JMetaParser {
     parser    : .p=(k("public")|empty) .k("parser") ! .n=name .sn=(k("extends") .name|empty {"BaseParser"})
                 ."{" rs=ruleMethod* ."}"
                 p={ [:Parser, p, n, sn] + rs }
-                { return new JMetaOptimizer().parse(p, "optimizeGrammar"); } ;
+                {
+                   if (Boolean.getBoolean("jmeta.optimize.debug")) {
+                     System.out.println("Before:\n" + print_r(p));
+                   }
+                   return new JMetaOptimizer().parse(p, "optimizeGrammar");
+                } ;
 
     line      : p=. l=(parser|jpackage|jimport|classdef)  { return new Object[] {"Line", join(p), l}; } ;
     file      : ! ls=line* . end                 { [:File] + ls } ;
@@ -205,7 +210,13 @@ parser JMetaAndOrOpt extends JMetaPass {
 }
 
 parser JMetaOptimizer {
-    optimizeGrammar: ! :Parser p=_ n=_ sn=_ rs=optimizeRule* end              { [:Parser, p, n, sn] + rs } ;
+    optimizeGrammar: ! :Parser p=_ n=_ sn=_ rs=optimizeRule* end
+                     x={ [:Parser, p, n, sn] + rs }
+                     { if (Boolean.getBoolean("jmeta.optimize.debug")) {
+                         System.out.println("Opt:\n" + print_r(x));
+                       }
+                       return x;
+                     } ;
     optimizeRule:    r=_ {
         JMetaAndOrOpt opt = new JMetaAndOrOpt();
         do {

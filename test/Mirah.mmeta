@@ -327,7 +327,7 @@ parser MirahParser {
   operation: fid | constant | identifier;
   operation2: fid | constant | identifier | op;
   operation3: fid | ~constant identifier | op;
-  dot: ."." opt_nl;
+  dot: opt_nl ."." ~"." opt_nl;
   colons: "::" opt_nl;
   dot_or_colon: dot | colons;
   opt_nl: (. nl)*;

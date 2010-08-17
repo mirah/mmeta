@@ -349,6 +349,7 @@ EOF
     assert_parse("[Script, [FCall, iterate, [[Call, /, [Identifier, x], [[Float, 40.0]]], [Call, /, [Identifier, y], [[Float, 40.0]]]], null]]", "iterate(x/40.0,y/40.0)")
     assert_parse("[Script, [Super, [], null]]", 'super()')
     assert_parse("[Script, [ZSuper]]", 'super')
+    assert_parse("[Script, [Call, foo, [Identifier, a], null, null]]", "a\n.\nfoo")
   end
 
   def test_command
