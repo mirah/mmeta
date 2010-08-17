@@ -37,8 +37,8 @@ public parser MMetaCompiler {
       @locals = ArrayList.new
       @methods = ArrayList.new
       @rules = ArrayList.new
-      @sname = "__ERROR__-sname-__ERROR__"
-      @name = "__ERROR__-name-__ERROR__"
+      @sname = "ERROR-sname-ERROR"
+      @name = "ERROR-name-ERROR"
       @_ = "  "
       @__genc = -1
     }
@@ -116,7 +116,7 @@ public parser MMetaCompiler {
         end
         "_push(#{arg_str}); _t=self.#{rule}();"
     };
-    App rule=_ { rule = "__end__" if "end".equals(rule); "_t=self.#{rule}();" };
+    App rule=_ { "_t=self.#{rule}();" };
 
     # Don't include whitespace at the beginning of the rule in it's position
     Dot {"if _start == _pos;_t=ws();_real_start=_pos;nil;else;_t=ws();end;"};
@@ -126,12 +126,12 @@ public parser MMetaCompiler {
         "_t=(#{expr});"
     };
     Pred expr=_ {
-        "_t = (#{expr}) ? nil : __ERROR__;"
+        "_t = (#{expr}) ? nil : BaseParser.__ERROR__;"
     };
 
 
-    Or indent xs=(x=trans { "#{@_}#{x}\n#{@_}break unless _t == __ERROR__\n" }
-        )* { "_t=__ERROR__; begin  # or\n#{join(xs, "\n")}#{outdent}end while false\n" };
+    Or indent xs=(x=trans { "#{@_}#{x}\n#{@_}break unless _t == BaseParser.__ERROR__\n" }
+        )* { "_t=BaseParser.__ERROR__; begin  # or\n#{join(xs, "\n")}#{outdent}end while false\n" };
 
 
     And indent ts=trans+ {
@@ -145,13 +145,13 @@ public parser MMetaCompiler {
             next
           end
           b = if err.nil?
-            "#{b}#{@_}#{x}\n#{@_}break if _t == __ERROR__\n"
+            "#{b}#{@_}#{x}\n#{@_}break if _t == BaseParser.__ERROR__\n"
           else
-            "#{b}#{@_}#{x}\n#{@_}raise SyntaxError.new(\"#{err}\", _pos, _string, _list) if _t == __ERROR__\n"
+            "#{b}#{@_}#{x}\n#{@_}raise SyntaxError.new(\"#{err}\", _pos, _string, _list) if _t == BaseParser.__ERROR__\n"
           end
         end
         outdent();
-        "#{b}#{@_}end while false; self._pos=_p#{var} if (_t==__ERROR__); end\n"
+        "#{b}#{@_}end while false; self._pos=_p#{var} if (_t==BaseParser.__ERROR__); end\n"
     };
     And { "" };
 
@@ -159,12 +159,12 @@ public parser MMetaCompiler {
         var = genvar
         b = "as#{var} = ArrayList.new\n"
         if (many1)
-          b = "#{b}#{@_}#{x}\n#{@_}if (_t!=__ERROR__)\n#{indent}as#{var}.add(_t)\n"
+          b = "#{b}#{@_}#{x}\n#{@_}if (_t!=BaseParser.__ERROR__)\n#{indent}as#{var}.add(_t)\n"
         end
 
         b = "#{b}#{@_}while true  # many\n" +
             "#{@_}#{x}\n" +
-            "#{@_}if (_t==__ERROR__); break; else as#{var}.add(_t);nil;end\n" +
+            "#{@_}if (_t==BaseParser.__ERROR__); break; else as#{var}.add(_t);nil;end\n" +
             "#{@_}end; _t=as#{var}\n"
 
         if (many1)
@@ -175,18 +175,18 @@ public parser MMetaCompiler {
     Many  indent x=trans outdent { makeMany(x, false) } ;
     Many1 indent x=trans outdent { makeMany(x, true)  } ;
 
-    Opt indent x=trans outdent { "#{x}\n#{@_}_t=(_string.nil? ? \"\" : nil) if _t == __ERROR__;" };
+    Opt indent x=trans outdent { "#{x}\n#{@_}_t=(_string.nil? ? \"\" : nil) if _t == BaseParser.__ERROR__;" };
 
-    Not x=trans { "#{@_}#{x}\n_t = (_t == __ERROR__ ? Object(Boolean.valueOf(true)) : __ERROR__);"};
+    Not x=trans { "#{@_}#{x}\n_t = (_t == BaseParser.__ERROR__ ? Object(Boolean.valueOf(true)) : BaseParser.__ERROR__);"};
 
     Peek x=trans {
       var = genvar
       
-      "begin\n#{indent}_l#{var}=_pos\n#{@_}#{x}\n#{@_}self._pos=_l#{var} if (_t!=__ERROR__)\n#{outdent}end\n"
+      "begin\n#{indent}_l#{var}=_pos\n#{@_}#{x}\n#{@_}self._pos=_l#{var} if (_t!=BaseParser.__ERROR__)\n#{outdent}end\n"
     };
 
     List indent x=trans outdent {
-        "_t=_listBegin(); if (_t!=__ERROR__)\n#{@_}  #{x}\n#{@_}_listEnd(); end;"
+        "_t=_listBegin(); if (_t!=BaseParser.__ERROR__)\n#{@_}  #{x}\n#{@_}_listEnd(); end;"
     };
 
     Rule n=_ b=trans {
@@ -194,11 +194,11 @@ public parser MMetaCompiler {
       "
   def #{n}
     _t=Object(nil); _start=_pos; _real_start=-1;
-    _t=_retrieve(\"#{@name}.#{n}\"); return _t if (_t!=__NOT_MEMOIZED__)
+    _t=_retrieve(\"#{@name}.#{n}\"); return _t if (_t!=BaseParser.__NOT_MEMOIZED__)
     #{localsAsInit}    begin
     #{b}
     _t=_memoize(\"#{@name}.#{n}\", _start, _t);
-    end while (_t==__GROW__); __ERROR__.last=\"#{n}\" if (_t==__ERROR__); return _t;
+    end while (_t==BaseParser.__GROW__); BaseParser.__ERROR__.last=\"#{n}\" if (_t==BaseParser.__ERROR__); return _t;
   end
 "
     };

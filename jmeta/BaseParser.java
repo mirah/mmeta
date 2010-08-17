@@ -68,13 +68,13 @@ public class BaseParser {
 
     /// Object indicating a parsing error
     public static final ErrorObject ERROR = new ErrorObject();
-    public ErrorObject __ERROR__() { return BaseParser.ERROR; }
-    public final Object LEFT_REC   = new Object() { public String toString() { return "LEFT_REC"; }};
-    public Object __LEFT_REC__() { return LEFT_REC; }
-    public final Object GROW       = new Object() { public String toString() { return "GROW"; }};
-    public Object __GROW__() { return GROW; }
-    public final Memoize NOT_MEMOIZED     = new Memoize(null, -1)  { public String toString() { return "not memoized"; }};
-    public Memoize __NOT_MEMOIZED__() { return NOT_MEMOIZED; }
+    public static final ErrorObject __ERROR__ = ERROR;
+    public static final Object LEFT_REC = new Object() { public String toString() { return "LEFT_REC"; }};
+    public static final Object __LEFT_REC__ = LEFT_REC;
+    public static final Object GROW = new Object() { public String toString() { return "GROW"; }};
+    public static final Object __GROW__ = GROW;
+    public static final Memoize NOT_MEMOIZED = new Memoize(null, -1)  { public String toString() { return "not memoized"; }};
+    public static final Memoize __NOT_MEMOIZED__ = NOT_MEMOIZED;
 
     LinkedList<Object> args;
     State _stack = null;

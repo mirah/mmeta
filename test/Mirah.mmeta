@@ -533,7 +533,7 @@ parser MirahParser {
   # Left recursion clears memoization of some values, but heredocs
   # can only be processed once. This rule forces memoization.
   memo rule=_ : position = {Integer.valueOf(_pos)}
-                ( {@memo.get(position) || __ERROR__}
+                ( {@memo.get(position) || @error}
                 | v=apply(rule) { @memo.put(position, v); v });
 
   reswords: ?{_rpeek.indexOf(".") == -1}
@@ -579,6 +579,7 @@ parser MirahParser {
   }
 
   def initialize {
+    @error = BaseParser.__ERROR__
     @BEG = 0
     @begchars = " ([{,;=" #}
     @HEX = "0123456789abcdefABCDEF"
@@ -604,11 +605,11 @@ parser MirahParser {
 
   def _codepoint() {
     t = _any
-    return -1 if t == __ERROR__
+    return -1 if t == @error
     character = Character(t).charValue
     if character >= 0xd800 && character <= 0xdbff
       t = _any
-      if t == __ERROR__
+      if t == @error
         return -1
       end
       return Character.toCodePoint(character, Character(t).charValue)
@@ -622,7 +623,7 @@ parser MirahParser {
     t = _codepoint
     if t == -1
       self._pos = start
-      return Object(__ERROR__)
+      return Object(@error)
     else
       return Object(String.new(Character.toChars(t)))
     end
@@ -635,7 +636,7 @@ parser MirahParser {
       Object(String.new(Character.toChars(c)))
     else
       self._pos = start
-      __ERROR__
+      @error
     end
   }
 
@@ -646,7 +647,7 @@ parser MirahParser {
       Object(String.new(Character.toChars(c)))
     else
       self._pos = start
-      __ERROR__
+      @error
     end
   }
 
@@ -657,7 +658,7 @@ parser MirahParser {
       Object(String.new(Character.toChars(c)))
     else
       self._pos = start
-      __ERROR__
+      @error
     end
   }
 
@@ -680,7 +681,7 @@ parser MirahParser {
       else
         squote_heredoc
       end
-      if _t == __ERROR__
+      if _t == @error
         raise SyntaxError.new("Missing heredoc terminator #{context.id}.", _pos, _string, _list)
       elsif _t.kind_of?(String)
         node.name = 'String'
@@ -709,11 +710,11 @@ parser MirahParser {
     start = _pos
     ws
     t = _str(keyword)
-    if t != __ERROR__
-      t = __ERROR__ unless identifierChar == __ERROR__
+    if t != @error
+      t = @error unless identifierChar == @error
     end
-    if t == __ERROR__
-      __ERROR__.last = keyword
+    if t == @error
+      @error.last = keyword
       self._pos = start
     end
     t
