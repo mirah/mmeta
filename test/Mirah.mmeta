@@ -81,12 +81,8 @@ parser MirahParser {
 
   statement: f=statement2 b= ->^(PH) t=( k(:if) c=value(expr) -> ^(If c b nil)
                                        | k(:unless) c=value(expr) -> ^(If c nil b)
-                                       | ?{Ast(b).name.equals("Begin")} k(:while) c=value(expr)
-                                         -> ^(DoWhile c b)
-                                       | ?{Ast(b).name.equals("Begin")} k(:until) c=value(expr)
-                                         -> ^(DoUntil c b)
-                                       | k(:while) c=value(expr) -> ^(While c b)
-                                       | k(:until) c=value(expr) -> ^(Until c b)
+                                       | k(:while) c=value(expr) -> ^(WhileMod c b)
+                                       | k(:until) c=value(expr) -> ^(UntilMod c b)
                                        | k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
                                        )* {tangle(f, t)};
   statement2: l=lhs ."=" r=command_call assign(l, r)
@@ -296,15 +292,11 @@ parser MirahParser {
                  |."!~" opt_nl b=arg4 -> ^(Not ^(Call "=~" ["PH"] [b])))* {tangle(a, t)};
   arg5: a=arg6 t=(."|" opt_nl b=arg5 -> ^(Call "|" ["PH"] [b])
                  |."^" opt_nl b=arg5 -> ^(Call "^" ["PH"] [b]))* {tangle(a, t)};
-  arg6: a=arg6 ."&" opt_nl b=arg6 -> ^(Call "&" a [b])
-      | arg7;
-  arg7: a=arg7 . op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b])
-      | arg8;
-  arg8: a=arg8 ."+" opt_nl b=arg8 -> ^(Call "+" a [b])
-      | a=arg8 ."-" opt_nl b=arg8 -> ^(Call "-" a [b])
-      | arg9;
-  arg9: a=arg9 . op=oneOf("*/%") opt_nl b=arg9 -> ^(Call op a [b])
-      | arg10;
+  arg6: a=arg7 t=(."&" opt_nl b=arg6 -> ^(Call "&" ["PH"] [b]))* {tangle(a, t)};
+  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b]))* {tangle(a, t)};
+  arg8: a=arg9 t=(."+" opt_nl b=arg8 -> ^(Call "+" ["PH"] [b])
+                 |."-" opt_nl b=arg8 -> ^(Call "-" ["PH"] [b]))* {tangle(a, t)};
+  arg9: a=arg10 t=(. op=oneOf("*/%") opt_nl b=arg9 -> ^(Call op ["PH"] [b]))* {tangle(a, t)};
   arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
        | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
        | uminus v=arg11 -> ^(Call "-@" v)
