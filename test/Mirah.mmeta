@@ -531,28 +531,33 @@ parser MirahParser {
           | k(:unless)|k(:while)|k(:until)
           );
 
+  def self.parse_args(args:String[]) {
+    argc = args.length
+    if args[0].equals "-v"
+      BaseParser.tracing = true
+      argc -= 1
+    end
+    if argc > 0
+      filename = args[args.length - 1]
+      stream = InputStream(FileInputStream.new(filename))
+    else
+      stream = System.in
+    end
+    reader = BufferedReader.new(InputStreamReader.new(stream))
+    buffer = char[8192]
+    builder = StringBuilder.new
+    while (read = reader.read(buffer, 0, buffer.length)) > 0
+      builder.append(buffer, 0, read);
+    end
+    return builder.toString
+  }
+
   def self.main(args:String[]) {
       returns void
       parser = MirahParser.new
-      argc = args.length
-      if args[0].equals "-v"
-        BaseParser.tracing = true
-        argc -= 1
-      end
-      if argc > 0
-        filename = args[args.length - 1]
-        stream = InputStream(FileInputStream.new(filename))
-      else
-        stream = System.in
-      end
+      code = parse_args(args)
       begin
-        reader = BufferedReader.new(InputStreamReader.new(stream))
-        buffer = char[8192]
-        builder = StringBuilder.new
-        while (read = reader.read(buffer, 0, buffer.length)) > 0
-          builder.append(buffer, 0, read);
-        end
-        puts BaseParser.print_r(parser.parse(builder.toString()))
+        puts BaseParser.print_r(parser.parse(code))
       ensure
         mb = 1024 * 1024
         runtime = Runtime.getRuntime

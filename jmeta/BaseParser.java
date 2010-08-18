@@ -226,7 +226,11 @@ public class BaseParser {
     public Object apply() {
         Object r = _pop();
         if (!(r instanceof String)) { ERROR.last = "apply() must receive a string"; return ERROR; }
-        return _jump(((String) r).intern());
+        try {
+          return _jump((String) r);
+        } catch (AssertionError e) {
+          return _jump(((String) r).intern());
+        }
     }
 
     /// hasRule; returns true or false, depending on if the given rule exists
