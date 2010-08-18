@@ -79,32 +79,33 @@ parser MirahParser {
 
   nl: "\n" heredoc;
 
-  statement: b=statement k(:if) c=value(expr) -> ^(If c b nil)
-           | b=statement k(:unless) c=value(expr) -> ^(If c nil b)
-           | b=statement ?{Ast(b).name.equals("Begin")} k(:while) c=value(expr)
-             -> ^(DoWhile c b)
-           | b=statement ?{Ast(b).name.equals("Begin")} k(:until) c=value(expr)
-             -> ^(DoUntil c b)
-           | b=statement k(:while) c=value(expr) -> ^(While c b)
-           | b=statement k(:until) c=value(expr) -> ^(Until c b)
-           | b=statement k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
-           | l=lhs ."=" r=command_call assign(l, r)
-           | l=var_lhs ."&&=" opt_nl r=command_call
-             b=assign(l, r)
-             -> ^(If gettable2(l) b null)
-           | l=var_lhs ."||=" opt_nl r=command_call
-             b=assign(l, r)
-             -> ^(If gettable2(l) null b)
-           | l=var_lhs op=op_assign r=command_call
-             b= -> ^(Call op gettable2(l) [r])
-             assign(l, b)
-           | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
-             -> ^(OpElemAssign t op a v)
-           | t=value(primary) dot f=identifier op=op_assign v=command_call
-             -> ^(OpAssign t f op v)
-           | t=value(primary) colons ~constant f=identifier op=op_assign v=command_call
-             -> ^(OpAssign t f op v)
-           | expr;
+  statement: f=statement2 b= ->^(PH) t=( k(:if) c=value(expr) -> ^(If c b nil)
+                                       | k(:unless) c=value(expr) -> ^(If c nil b)
+                                       | ?{Ast(b).name.equals("Begin")} k(:while) c=value(expr)
+                                         -> ^(DoWhile c b)
+                                       | ?{Ast(b).name.equals("Begin")} k(:until) c=value(expr)
+                                         -> ^(DoUntil c b)
+                                       | k(:while) c=value(expr) -> ^(While c b)
+                                       | k(:until) c=value(expr) -> ^(Until c b)
+                                       | k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
+                                       )* l={[f]+t};# {tangle(l)};
+  statement2: l=lhs ."=" r=command_call assign(l, r)
+            | l=var_lhs ."&&=" opt_nl r=command_call
+              b=assign(l, r)
+              -> ^(If gettable2(l) b null)
+            | l=var_lhs ."||=" opt_nl r=command_call
+              b=assign(l, r)
+              -> ^(If gettable2(l) null b)
+            | l=var_lhs op=op_assign r=command_call
+              b= -> ^(Call op gettable2(l) [r])
+              assign(l, b)
+            | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
+              -> ^(OpElemAssign t op a v)
+            | t=value(primary) dot f=identifier op=op_assign v=command_call
+              -> ^(OpAssign t f op v)
+            | t=value(primary) colons ~constant f=identifier op=op_assign v=command_call
+              -> ^(OpAssign t f op v)
+            | expr;
 
   value v=_ : {checkExpression(v)};
 
@@ -816,5 +817,27 @@ parser MirahParser {
   def negateFloat(f:Object) {
     d = Double(Ast(f).get(1)).doubleValue
     Double.valueOf(-d)
+  }
+
+  def tangle(l:LinkedList) {
+    ph = ArrayList.new
+    ph.add("PH")
+    while l.size > 1
+      inner = l.removeFirst
+      outer = List(l.get(0))
+      index = outer.indexOf(ph)
+      outer.set(index, inner)
+    end
+    l.get(0)
+  }
+
+  def tangle(_l:Object) {
+    tangle(LinkedList.new(List(_l)))
+  }
+
+  def tangle(h:Object, t:Object) {
+    l = LinkedList.new(List(t))
+    l.add(0, h)
+    tangle(l)
   }
 }
