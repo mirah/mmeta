@@ -131,9 +131,8 @@ parser MirahParser {
               # | k(:next) a=call_args -> ^(Next a+)
 
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
-  block_command: c=block_command dot_or_colon op=operation2 a=command_args
-                   -> ^(Call op c a)
-               | block_call;
+  block_command: h=block_call t=(dot_or_colon op=operation2 a=command_args
+                                 -> ^(Call op ["PH"] a))* {tangle(h, t)};
 
   primary scope(@BEG, @cond)
          : h=value(primary2) t=->^(PH) tail=( colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const t b)
@@ -255,8 +254,7 @@ parser MirahParser {
 
   # Do we need bv_decls?
   block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
-  block_call: t=block_call dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op t a)
-            | c=command b=do_block {n=Ast(Ast(c).clone); n.add(b);n};
+  block_call: c=command b=do_block h={n=Ast(Ast(c).clone); n.add(b);n} t=(dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op ["PH"] a))* {tangle(h, t)};
 
   paren_args: ."("! opt_nl c=call_args? opt_nl .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
@@ -267,7 +265,10 @@ parser MirahParser {
 
   assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
 
-  arg: l=lhs ."=" r=maybe_rescue assign(l, r)
+  arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
+                    -> ^(If ["PH"] t e))* {tangle(h, tail)};
+  arg0
+     : l=lhs ."=" r=maybe_rescue assign(l, r)
      | l=var_lhs ."&&=" opt_nl r=arg
        b=assign(l, r)
        -> ^(If gettable2(l) b null)
@@ -286,21 +287,15 @@ parser MirahParser {
      | colon3 constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
      # ranges?
-     | c=arg ."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
-       -> ^(If c t e)
      | arg2;
 
-  arg2: a=arg2 ."||" opt_nl b=arg2 -> ^(Or a b)
-      | arg3;
-  arg3: a=arg3 ."&&" opt_nl b=arg3 -> ^(And a b)
-      | arg4;
-  arg4: a=arg4 . op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
-        -> ^(Call op a [b])
-      | a=arg4 ."!~" opt_nl b=arg4 -> ^(Not ^(Call "=~" a [b]))
-      | arg5;
-  arg5: a=arg5 ."|" opt_nl b=arg5 -> ^(Call "|" a [b])
-      | a=arg5 ."^" opt_nl b=arg5 -> ^(Call "^" a [b])
-      | arg6;
+  arg2: a=arg3 t=(."||" opt_nl b=arg2 -> ^(Or ["PH"] b))* {tangle(a, t)};
+  arg3: a=arg4 t=(."&&" opt_nl b=arg3 -> ^(And ["PH"] b))* {tangle(a, t)};
+  arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
+                   -> ^(Call op ["PH"] [b])
+                 |."!~" opt_nl b=arg4 -> ^(Not ^(Call "=~" ["PH"] [b])))* {tangle(a, t)};
+  arg5: a=arg6 t=(."|" opt_nl b=arg5 -> ^(Call "|" ["PH"] [b])
+                 |."^" opt_nl b=arg5 -> ^(Call "^" ["PH"] [b]))* {tangle(a, t)};
   arg6: a=arg6 ."&" opt_nl b=arg6 -> ^(Call "&" a [b])
       | arg7;
   arg7: a=arg7 . op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b])
@@ -824,9 +819,13 @@ parser MirahParser {
     List(tail).each do |item|
       inner = result
       outer = List(item)
-      index = outer.indexOf(ph)
+      index = -1
+      while index == -1
+        index = outer.indexOf(ph)
+        outer = List(outer.get(1)) if index == -1
+      end
       outer.set(index, inner)
-      result = outer
+      result = item
     end
     result
   }
