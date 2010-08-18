@@ -89,7 +89,8 @@ public class BaseParser {
     public void _pos_set(int pos) { _pos = pos; }
     public String _string;
     public String _string() { return _string; }
-    public void _string_set(String string) { _string = string; }
+    public char[] _chars;
+    public char[] _chars() { return _chars; }
     public Object[] _list;
     public Object[] _list() { return _list; }
     public void _list_set(Object[] list) { _list = list; }
@@ -167,7 +168,7 @@ public class BaseParser {
         return trace("> try:", s, NOT_MEMOIZED);
     }
 
-    void _init() {
+    public void _init() {
         _pos = 0;
         _positions = new SparseArrayList<HashMap<String, Memoize>>();
         _lefts = new ArrayDeque<HashSet<String>>();
@@ -182,7 +183,10 @@ public class BaseParser {
 
     /// init parser with String, use parser.rule() to actually parse
     public void init(String s) {
-        _string = s; _list = null; _init();
+        _string = s;
+        _chars = s.toCharArray();
+        _list = null;
+        _init();
     }
 
     /// init parser with a Object[] array, @see init(String s);
@@ -258,8 +262,8 @@ public class BaseParser {
     public Object _any() {
         if (! args.isEmpty()) return args.pop();
         if (_string != null) {
-            if (_pos < _string.length()) {
-                char c = _string.charAt(_pos++);
+            if (_pos < _chars.length) {
+                char c = _chars[_pos++];
                 if (c == '\n' || (c == '\r' && _cpeek() != '\n')) {
                     if (!lines.containsKey(_pos)) {
                         lines.put(_pos, lines.size());
@@ -302,7 +306,7 @@ public class BaseParser {
             throw new IllegalStateException("'col' is only available in string parsing");
         int pos = _pos - 1;
 
-        while (pos >= 0 && _string.charAt(pos) != '\n') pos--;
+        while (pos >= 0 && _chars[pos] != '\n') pos--;
         return _pos - pos - 1;
     }
 
@@ -329,8 +333,8 @@ public class BaseParser {
     }
 
     public char _cpeek() {
-        if (_pos < _string.length()) {
-            return _string.charAt(_pos);
+        if (_pos < _chars.length) {
+            return _chars[_pos];
         } else {
             return '\0';
         }
@@ -345,7 +349,7 @@ public class BaseParser {
 
     public Object _peek() {
         if (_string != null)
-            if (_pos < _string.length()) return _string.charAt(_pos); else return ERROR;
+            if (_pos < _chars.length) return _chars[_pos]; else return ERROR;
         if (_list != null)
             if (_pos < _list.length) return _list[_pos]; else return ERROR;
         throw new IllegalStateException("no _list nor _string??");
@@ -379,11 +383,17 @@ public class BaseParser {
         if (_string == null)
             throw new IllegalStateException("string ('\""+ s +"\"') is only available in string parsing");
         int p = _pos;
-        for (int i = 0; i < s.length(); i++) {
-            if (_peek() == ERROR) { _pos = p; ERROR.last = "'"+ s +"'"; return ERROR; }
-            if (_cpeek() != s.charAt(i)) { _pos = p; ERROR.last = "'"+ s +"'"; return ERROR; }
-            _any();
+        if (p + s.length() > _chars.length) {
+          ERROR.last = "'"+ s +"'";
+          return ERROR;
         }
+        for (int i = 0; i < s.length(); i++) {
+          if (s.charAt(i) != _chars[p++]) {
+            ERROR.last = "'"+ s +"'";
+            return ERROR;
+          }
+        }
+        _pos = p;
         return trace(" ok _str():", s);
     }
 

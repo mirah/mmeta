@@ -95,7 +95,7 @@ public parser MMetaCompiler {
         addLocal(n);
         "#{x}\n#{@_}#{n}=_t;"
     };
-    Str s=_ { "_t=_str(\"#{s}\");" };
+    Str s=_ { compile_literal_string(s) };
     Sym s=_ { "_t=_sym(\"#{s}\");" };
 
 
@@ -217,7 +217,7 @@ public parser MMetaCompiler {
     };
 
     Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {
-        b = "\nclass #{@name} < #{@sname}\n" +
+        b = "\nclass #{@name} < #{@sname}\n  def _init;@chars = _chars;super();end\n" +
             join(xs) + "\n" + join(@methods) + "\n" +
             "  def _jump(r:string)\n"
 
@@ -258,4 +258,60 @@ public parser MMetaCompiler {
     } ;
 
     start: ! r=destruct end           { r } ;
+
+    def unescape(s:String) {
+      sb = StringBuilder.new
+      i = 0
+      while i < s.length
+        if s.charAt(i) == 92 # ?\\
+          i += 1
+          c = s.substring(i, i + 1)
+          if c.equals("n")
+            sb.append("\n")
+          elsif c == "s"
+            sb.append("\s")
+          elsif c == "r"
+            sb.append("\r")
+          elsif c == "t"
+            sb.append("\t")
+          elsif c == "v"
+            sb.append("\v")
+          elsif c == "f"
+            sb.append("\f")
+          elsif c == "b"
+            sb.append("\b")
+          elsif c == "a"
+            sb.append("\a")
+          elsif c == "e"
+            sb.append("\e")
+          else
+            sb.append(c)
+          end
+        else
+          sb.append(s.charAt(i))
+        end
+        i += 1
+      end
+      return sb.toString.toCharArray
+    }
+
+    def compile_literal_string(_s:Object) {
+      s = unescape(String(_s))
+      if s.length == 0
+        "_t = ''\n"
+      else
+        var = "_p#{genvar}"
+        sb = StringBuilder.new("#{@_}_t = BaseParser.__ERROR__\n")
+        sb.append("#{@_}#{var} = _pos\n")
+        sb.append("#{@_}begin\n")
+        sb.append("#{@_}  break if #{var} + #{s.length} > @chars.length\n")
+        s.each do |c|
+          sb.append("#{@_}  break unless @chars[#{var}] == #{c}\n")
+          sb.append("#{@_}  #{var} += 1\n")
+        end
+        sb.append("#{@_}  _t = \"#{_s}\"; self._pos = #{var}\n")
+        sb.append("#{@_}end while false\n")
+        sb.toString
+      end
+    }
 }
