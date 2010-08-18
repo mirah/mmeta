@@ -88,7 +88,7 @@ parser MirahParser {
                                        | k(:while) c=value(expr) -> ^(While c b)
                                        | k(:until) c=value(expr) -> ^(Until c b)
                                        | k(:rescue) r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
-                                       )* l={[f]+t};# {tangle(l)};
+                                       )* {tangle(f, t)};
   statement2: l=lhs ."=" r=command_call assign(l, r)
             | l=var_lhs ."&&=" opt_nl r=command_call
               b=assign(l, r)
@@ -109,13 +109,13 @@ parser MirahParser {
 
   value v=_ : {checkExpression(v)};
 
-  expr: a=expr k(:and) opt_nl b=expr -> ^(And a b)
-      | a=expr k(:or) opt_nl b=expr -> ^(Or a b)
-      | k(:not) opt_nl e=expr -> ^(Not e)
-      | c=variable ."?" opt_nl t=arg opt_nl . ":" opt_nl e=arg -> ^(If c t e)
-      | command_call
-      | ."!" e=command_call -> ^(Not e)
-      | arg;
+  expr: h=( k(:not) opt_nl e=expr -> ^(Not e)
+            | c=variable ."?" opt_nl t=arg opt_nl . ":" opt_nl e=arg -> ^(If c t e)
+            | command_call
+            | ."!" e=command_call -> ^(Not e)
+            | arg
+          ) a={["PH"]} tail=( k(:and) opt_nl b=expr -> ^(And a b)
+                            | k(:or) opt_nl b=expr -> ^(Or a b))* {tangle(h, tail)};
 
   # Node:command - fcall/call/yield/super [!null]
   command: op=operation a=command_args b=cmd_brace_block?-> ^(FCall op a b)
@@ -136,9 +136,19 @@ parser MirahParser {
                | block_call;
 
   primary scope(@BEG, @cond)
-         : a=value(primary) colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const a b)
-         | colon3 c=constant ~assignment_op -> ^(Colon3 c)
-         | method_call
+         : h=value(primary2) t=->^(PH) tail=( colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const t b)
+                                            | dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
+                                            | colons op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
+                                            | colons op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
+                                            | dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
+                                            | ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
+                                            )* {tangle(h, tail)};
+  primary2
+         : k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
+         | k(:super) iter=brace_block -> ^(Super [] iter)
+         | k(:super) -> ^(ZSuper)
+         | op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
+         | op=operation iter=brace_block -> ^(FCall op [] iter)| colon3 c=constant ~assignment_op -> ^(Colon3 c)
          | k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
          | . "(" opt_nl e=expr opt_nl . ")" { e }
          | . "(" opt_nl e=compstmt opt_nl . ")" {
@@ -234,18 +244,6 @@ parser MirahParser {
              | ."&"! n=f_norm_arg -> ^(BlockArg n+);
 
   block_arg: ."&" v=arg_value -> ^(BlockPass v);
-
-  method_call scope(@BEG)
-             : t=value(primary) dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
-             | t=value(primary) colons op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
-             | t=value(primary) colons op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
-             | t=value(primary) dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
-             | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
-             | k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
-             | k(:super) iter=brace_block -> ^(Super [] iter)
-             | k(:super) -> ^(ZSuper)
-             | op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
-             | op=operation iter=brace_block -> ^(FCall op [] iter);
 
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
@@ -819,25 +817,17 @@ parser MirahParser {
     Double.valueOf(-d)
   }
 
-  def tangle(l:LinkedList) {
+  def tangle(head:Object, tail:Object) {
     ph = ArrayList.new
     ph.add("PH")
-    while l.size > 1
-      inner = l.removeFirst
-      outer = List(l.get(0))
+    result = head
+    List(tail).each do |item|
+      inner = result
+      outer = List(item)
       index = outer.indexOf(ph)
       outer.set(index, inner)
+      result = outer
     end
-    l.get(0)
-  }
-
-  def tangle(_l:Object) {
-    tangle(LinkedList.new(List(_l)))
-  }
-
-  def tangle(h:Object, t:Object) {
-    l = LinkedList.new(List(t))
-    l.add(0, h)
-    tangle(l)
+    result
   }
 }
