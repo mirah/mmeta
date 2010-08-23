@@ -194,10 +194,11 @@ public parser MMetaCompiler {
       "
   def #{n}
     _t=Object(nil); _start=_pos; _real_start=-1;
-    _t=_retrieve(\"#{@name}.#{n}\"); return _t if (_t!=BaseParser.__NOT_MEMOIZED__)
+    _enter('#{n}')
+    _t=_retrieve(\"#{@name}.#{n}\"); return _exit(_t) if (_t!=BaseParser.__NOT_MEMOIZED__)
     #{localsAsInit}    begin
     #{b}
-    _t=_memoize(\"#{@name}.#{n}\", _start, _t);
+    _t=_exit(_memoize(\"#{@name}.#{n}\", _start, _t))
     end while (_t==BaseParser.__GROW__); BaseParser.__ERROR__.last=\"#{n}\" if (_t==BaseParser.__ERROR__); return _t;
   end
 "
