@@ -54,7 +54,43 @@ public class BaseParser {
             sb.append(o);
         }
     }
+    public void _enter(String label) {
+      if (debug_parse_tree) {
+        String parent = parseTree.peekLast();
+        if ("ws".equals(label) ||
+            "skip".equals(parent)) {
+          parseTree.addLast("skip");
+          return;
+        }
+        String nodeName = "n" + nodeCount++;
+        label = label.replaceAll("\"", "\\\\\"").replaceAll("\n", "\\\\n");
+        System.out.println("  " + nodeName + "[label=\"" + label + "\"];");
+        if (parent != null) {
+          System.out.println("  " + parent + " -- " + nodeName + ";");
+        }
+        parseTree.addLast(nodeName);
+      }
+    }
+
+    public Object _exit(Object result) {
+      if (debug_parse_tree) {
+        String nodeName = parseTree.removeLast();
+        if ("skip".equals(nodeName)) {
+          // don't print anything
+        } else if (result == ERROR) {
+          System.out.println("  " + nodeName + "[color=red];");
+        } else if (result == GROW) {
+          String growNode = "g" + nodeCount++;
+          System.out.println("  " + growNode + "[label=\"GROW\",color=blue];");
+          System.out.println("  " + nodeName + " -- " + growNode + ";");
+          parseTree.addLast(nodeName);
+        }
+      }
+      return result;
+    }
+
     public static boolean tracing = false;
+    public static boolean debug_parse_tree = false;
     public Object trace(Object... args) {
         if (! tracing) return args[args.length - 1];
 
@@ -83,6 +119,8 @@ public class BaseParser {
     // Use a reverse sorted TreeSet so we can use lines.tailSet(x).first() to find the
     // first value <= x;
     private TreeMap<Integer, Integer> lines = new TreeMap<Integer, Integer>(new ReverseComparator());
+    private long nodeCount;
+    private ArrayDeque<String> parseTree = new ArrayDeque<String>();
 
     public int _pos = 0;
     public int _pos() { return _pos; }
@@ -207,9 +245,17 @@ public class BaseParser {
         else if (o instanceof List)    init((List) o);
         else throw new AssertionError("parse requires a List, Object[] or String; got " + (o == null ? "null" : o.getClass().toString()));
 
+        if (debug_parse_tree) {
+          System.out.println("graph parse {");
+        }
+
         Object _t = null;
         if (r != null) _t = _jump(r.intern());
         else _t = start();
+
+        if (debug_parse_tree) {
+          System.out.println("}");
+        }
 
         if (_t==ERROR) throw new SyntaxError("", _pos, _string, _list);
         return _t;
@@ -261,6 +307,7 @@ public class BaseParser {
     /// '_'
     public Object _any() {
         if (! args.isEmpty()) return args.pop();
+        _enter("_any");
         if (_string != null) {
             if (_pos < _string.length()) {
                 char c = _string.charAt(_pos++);
@@ -269,13 +316,13 @@ public class BaseParser {
                         lines.put(_pos, lines.size());
                     }
                 }
-                return c;
+                return _exit(c);
             } else {
-                return ERROR;
+                return _exit(ERROR);
             }
         }
         if (_list != null)
-            if (_pos < _list.length) return _list[_pos++]; else return ERROR;
+            if (_pos < _list.length) return _exit(_list[_pos++]); else return _exit(ERROR);
         throw new IllegalStateException("no _list nor _string??");
     }
 
@@ -380,15 +427,16 @@ public class BaseParser {
     /// '"..."' parses a string when string parsing
     public Object _str(String s) {
         trace("try _str():", s);
+        _enter("'"+s+"'");
         if (_string == null)
             throw new IllegalStateException("string ('\""+ s +"\"') is only available in string parsing");
         int p = _pos;
         for (int i = 0; i < s.length(); i++) {
-            if (_peek() == ERROR) { _pos = p; ERROR.last = "'"+ s +"'"; return ERROR; }
-            if (_cpeek() != s.charAt(i)) { _pos = p; ERROR.last = "'"+ s +"'"; return ERROR; }
+            if (_peek() == ERROR) { _pos = p; ERROR.last = "'"+ s +"'"; return _exit(ERROR); }
+            if (_cpeek() != s.charAt(i)) { _pos = p; ERROR.last = "'"+ s +"'"; return _exit(ERROR); }
             _any();
         }
-        return trace(" ok _str():", s);
+        return _exit(trace(" ok _str():", s));
     }
 
     /// '`...' parses a string based symbols when list parsing (e.g. `new Object[] { "hello" }` matches `[ `hello ]`)
@@ -400,12 +448,13 @@ public class BaseParser {
     }
 
     public Object _char(String s) {
+        _enter("["+s+"]");
         if (_string == null)
             throw new IllegalStateException("charRange is only available in string parsing");
-        if (_peek() == ERROR) return ERROR;
+        if (_peek() == ERROR) return _exit(ERROR);
         char c = _cpeek();
-        if (s.indexOf(c) >= 0) { _any(); return c; }
-        return ERROR;
+        if (s.indexOf(c) >= 0) { _any(); return _exit(c); }
+        return _exit(ERROR);
     }
 
     /// nl; parses a single newline

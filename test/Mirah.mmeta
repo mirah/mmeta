@@ -536,6 +536,9 @@ parser MirahParser {
     if args[0].equals "-v"
       BaseParser.tracing = true
       argc -= 1
+    elsif args[0].equals "--tree"
+      BaseParser.debug_parse_true = true
+      argc -= 1
     end
     if argc > 0
       filename = args[args.length - 1]
@@ -557,15 +560,18 @@ parser MirahParser {
       parser = MirahParser.new
       code = parse_args(args)
       begin
-        puts BaseParser.print_r(parser.parse(code))
+        result = parser.parse(code)
+        puts BaseParser.print_r(result) unless BaseParser.debug_parse_tree
       ensure
-        mb = 1024 * 1024
-        runtime = Runtime.getRuntime
-        puts "##### Heap utilization statistics [MB] #####"
-        puts "Used Memory: #{(runtime.totalMemory - runtime.freeMemory) / mb}"
-        puts "Total Memory: #{runtime.totalMemory / mb}"
-        puts "Free Memory: #{runtime.freeMemory / mb}"
-        puts "Max Memory: #{runtime.maxMemory / mb}"
+        unless BaseParser.debug_parse_tree
+          mb = 1024 * 1024
+          runtime = Runtime.getRuntime
+          puts "##### Heap utilization statistics [MB] #####"
+          puts "Used Memory: #{(runtime.totalMemory - runtime.freeMemory) / mb}"
+          puts "Total Memory: #{runtime.totalMemory / mb}"
+          puts "Free Memory: #{runtime.freeMemory / mb}"
+          puts "Max Memory: #{runtime.maxMemory / mb}"
+        end
       end
   }
 
