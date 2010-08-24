@@ -58,6 +58,7 @@ public class BaseParser {
       if (debug_parse_tree) {
         String parent = parseTree.peekLast();
         if ("ws".equals(label) ||
+            "<skip>".equals(label) ||
             "skip".equals(parent)) {
           parseTree.addLast("skip");
           return;

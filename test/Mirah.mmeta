@@ -7,6 +7,7 @@ import java.util.List
 import java.util.LinkedList
 import java.util.Collections
 import jmeta.Ast
+import 'Token', 'jmeta.BaseParser$Token'
 
 public class HeredocContext {
   def initialize(node:Object)
@@ -97,9 +98,9 @@ parser MirahParser {
               assign(l, b)
             | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
               -> ^(OpElemAssign t op a v)
-            | t=value(primary) dot f=identifier op=op_assign v=command_call
+            | t=value(primary) dot f=(constant | identifier) op=op_assign v=command_call
               -> ^(OpAssign t f op v)
-            | t=value(primary) colons ~constant f=identifier op=op_assign v=command_call
+            | t=value(primary) colons f=identifier op=op_assign v=command_call
               -> ^(OpAssign t f op v)
             | expr;
 
@@ -139,49 +140,50 @@ parser MirahParser {
                                             | ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
                                             )* {tangle(h, tail)};
 
-  primary2: t=&tok {
-    if t == 'super'
+  primary2: k=&tok {
+    t = k.hashCode
+    if t == 109801339
       primary2_super
-    elsif t == '('
+    elsif t == 40
       primary2_lparen
-    elsif t == 'begin'
+    elsif t == 93616297
       primary2_begin
-    elsif t == '['
+    elsif t == 91
       primary2_lbrack
-    elsif t == '{' # }
+    elsif t == 123
       primary2_lbrace
-    elsif t == 'yield'
+    elsif t == 114974605
       primary2_yield
-    elsif t == '!'
+    elsif t == 33
       primary2_bang
-    elsif t == 'if'
+    elsif t == 3357
       primary2_if
-    elsif t == 'unless'
+    elsif t == -840451150
       primary2_unless
-    elsif t == 'while'
+    elsif t == 113101617
       primary2_while
-    elsif t == 'until'
+    elsif t == 111443806
       primary2_until
-    elsif t == 'for'
+    elsif t == 101577
       primary2_for
-    elsif t == 'class'
+    elsif t == 94742904
       primary2_class
-    elsif t == 'def'
+    elsif t == 99333
       primary2_def
-    elsif t == 'break'
+    elsif t == 94001407
       primary2_break
-    elsif t == 'next'
+    elsif t == 3377907
       primary2_next
-    elsif t == 'redo'
+    elsif t == 3496446
       primary2_redo
-    elsif t == 'retry'
+    elsif t == 108405416
       primary2_retry
-    elsif t == 'return'
+    elsif t == -934396624
       primary2_return
-    elsif t == '?' || t == '"' || t == "'" || t == '<'
+    elsif t == 63 || t == 34 || t == 39 || t == 60
       _push(:string)
       memo
-    elsif t == '/'
+    elsif t == 47
       regexp
     else
       primary2_id
@@ -337,7 +339,7 @@ parser MirahParser {
        -> ^(OpElemAssign t op a v)
      | value(primary) colons constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
-     | t=value(primary) dot_or_colon f=identifier op=assignment_op v=arg
+     | t=value(primary) dot_or_colon f=(constant | identifier) op=assignment_op v=arg
        -> ^(OpAssign t f op v)
      | colon3 constant assignment_op arg
        !"constant re-assignment prohibited" ?{false}
@@ -432,10 +434,66 @@ parser MirahParser {
 
   numeric: floatLiteral | fixnum;
 
-  tok: . (identifierChar+ oneOf("?!")? | _) {text(_real_start, _pos).intern};
+  tok: . (identifierChar+ oneOf("?!")? | _) {text(_real_start, _pos)};
 
-  constant: . &upperCase ~reswords ~label h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
-  identifier: . &identifierStart ~reswords ~label identifier2;
+  lex: {_exit(nil);_enter('<skip>')} .
+       ( "@" ( "@" identifier2 -> $ClassVar | identifier2 -> $InstVar)
+       | "BEGIN"	(oneOf("?!") -> $FID | ~identifierChar -> $BEGIN)
+       | "END"	(oneOf("?!") -> $FID | ~identifierChar -> $END)
+       | "__ENCODING__"	(oneOf("?!") -> $FID | ~identifierChar -> $__ENCODING__)
+       | "__FILE__"	(oneOf("?!") -> $FID | ~identifierChar -> $__FILE__)
+       | "__LINE__"	(oneOf("?!") -> $FID | ~identifierChar -> $__LINE__)
+       | "alias"	(oneOf("?!") -> $FID | ~identifierChar -> $alias)
+       | "and"	(oneOf("?!") -> $FID | ~identifierChar -> $and)
+       | "begin"	(oneOf("?!") -> $FID | ~identifierChar -> $begin)
+       | "break"	(oneOf("?!") -> $FID | ~identifierChar -> $break)
+       | "case"	(oneOf("?!") -> $FID | ~identifierChar -> $case)
+       | "class"	(oneOf("?!") -> $FID | ~identifierChar -> $class)
+       | "def"	(oneOf("?!") -> $FID | ~identifierChar -> $def)
+       | "defined"	(oneOf("?!") -> $FID | ~identifierChar -> $defined)
+       | "do"	(oneOf("?!") -> $FID | ~identifierChar -> $do)
+       | "else"	(oneOf("?!") -> $FID | ~identifierChar -> $else)
+       | "elsif"	(oneOf("?!") -> $FID | ~identifierChar -> $elsif)
+       | "end"	(oneOf("?!") -> $FID | ~identifierChar -> $end)
+       | "ensure"	(oneOf("?!") -> $FID | ~identifierChar -> $ensure)
+       | "false"	(oneOf("?!") -> $FID | ~identifierChar -> $false)
+       | "for"	(oneOf("?!") -> $FID | ~identifierChar -> $for)
+       | "if"	(oneOf("?!") -> $FID | ~identifierChar -> $if)
+       | "in"	(oneOf("?!") -> $FID | ~identifierChar -> $in)
+       | "module"	(oneOf("?!") -> $FID | ~identifierChar -> $module)
+       | "next"	(oneOf("?!") -> $FID | ~identifierChar -> $next)
+       | "nil"	(oneOf("?!") -> $FID | ~identifierChar -> $nil)
+       | "not"	(oneOf("?!") -> $FID | ~identifierChar -> $not)
+       | "or"	(oneOf("?!") -> $FID | ~identifierChar -> $or)
+       | "redo"	(oneOf("?!") -> $FID | ~identifierChar -> $redo)
+       | "rescue"	(oneOf("?!") -> $FID | ~identifierChar -> $rescue)
+       | "retry"	(oneOf("?!") -> $FID | ~identifierChar -> $retry)
+       | "return"	(oneOf("?!") -> $FID | ~identifierChar -> $return)
+       | "self"	(oneOf("?!") -> $FID | ~identifierChar -> $self)
+       | "super"	(oneOf("?!") -> $FID | ~identifierChar -> $super)
+       | "then"	(oneOf("?!") -> $FID | ~identifierChar -> $then)
+       | "true"	(oneOf("?!") -> $FID | ~identifierChar -> $true)
+       | "undef"	(oneOf("?!") -> $FID | ~identifierChar -> $undef)
+       | "unless"	(oneOf("?!") -> $FID | ~identifierChar -> $unless)
+       | "until"	(oneOf("?!") -> $FID | ~identifierChar -> $until)
+       | "when"	(oneOf("?!") -> $FID | ~identifierChar -> $when)
+       | "while"	(oneOf("?!") -> $FID | ~identifierChar -> $while)
+       | "yield"	(oneOf("?!") -> $FID | ~identifierChar -> $yield)
+       | upperCase identifierChar* -> $CONSTANT
+       | identifier2 -> $IDENTIFIER
+       | _ -> $UNKNOWN
+       );
+
+  constant: t=($CONSTANT | lastdot ($BEGIN | $END)) ~(":" ~":") {Token(t).text};
+  identifier: t=( $IDENTIFIER
+                | lastdot ( $__LINE__|$__FILE__|$__ENCODING__|$BEGIN|$END|$alias
+                          | $and|$begin|$break|$case|$class|$def|$defined|$do
+                          | $else|$elsif|$end|$ensure|$false|$for|$in|$module
+                          | $next|$nil|$not|$or|$redo|$rescue|$retry|$return
+                          | $self|$super|$then|$true|$undef|$when|$yield|$if
+                          | $unless|$while|$until
+                          )
+                ) ~(":" ~":") {Token(t).text};
   identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
   cvar: . "@@" n=identifierChar+ {join(n)};
   ivar: . "@" n=identifierChar+ {join(n)};
@@ -583,6 +641,7 @@ parser MirahParser {
                 ( {@memo.get(position) || @error}
                 | v=apply(rule) { @memo.put(position, v); v });
 
+  lastdot: ?{_rpeek.indexOf(".") == 0};
   reswords: ?{_rpeek.indexOf(".") == -1}
             ?{@reswords.region(_pos, _string.length);@reswords.lookingAt};
 
