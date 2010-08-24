@@ -131,6 +131,7 @@ public class BaseParser {
     public Object[] _list;
     public Object[] _list() { return _list; }
     public void _list_set(Object[] list) { _list = list; }
+    private Token cached_token = new Token(-1, -1, -1, -1);
 
     public Object _memoize(String s, int p, Object o) {
         HashMap<String, Memoize> map = _positions.get(p);
@@ -577,5 +578,55 @@ public class BaseParser {
     public boolean _has(String r) {
         return false;
     }
+    
+    public Token build_token(int type, int pos, int start) {
+      return new Token(type, pos, start, _pos);
+    }
+    
+    public Object lex() {
+      return ERROR;
+    }
+    
+    public Object _lex(int type) {
+      if (cached_token.pos != _pos) {
+        Object t = lex();
+        if (t == ERROR) {
+          cached_token = new Token(-1, _pos, _pos, _pos);
+        } else {
+          cached_token = (Token)t;
+        }
+      }
+      if (cached_token.type == type) {
+        _pos = cached_token.endpos;
+        return cached_token;
+      } else {
+        _pos = cached_token.pos;
+        return ERROR;
+      }
+    }
+    
+    public class Token {
+      public Token(int type, int pos, int start, int end) {
+        this.type = type;
+        this.pos = pos;
+        this.startpos = start == -1 ? pos : start;
+        this.endpos = end;
+      }
+      
+      public final int type;
+      public final int pos;
+      public final int startpos;
+      public final int endpos;
+      
+      public String text() {
+        return _string.substring(startpos, endpos);
+      }
+      
+      public boolean space_seen() {
+        return pos != startpos;
+      }
+    }
+    
+    
 }
 

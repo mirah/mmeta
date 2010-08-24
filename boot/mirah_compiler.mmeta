@@ -128,7 +128,16 @@ public parser MMetaCompiler {
     Pred expr=_ {
         "_t = (#{expr}) ? nil : BaseParser.__ERROR__;"
     };
+    SynPred pred=trans indent t=trans e=trans {
+      "#{pred}\n#{outdent}unless _t == BaseParser.__ERROR__\n#{t}\n#{@_}else\n#{e}\n#{@_}end\n"
+    };
 
+    Token name=_ {
+      "#{@_}_t = _lex(#{lookup_token(name)})  # #{name}\n"
+    };
+    TLit name=_ {
+      " # #{name}\n#{@_}    build_token(#{lookup_token(name)}, _start, _real_start)"
+    };
 
     Or indent xs=(x=trans { "#{@_}#{x}\n#{@_}break unless _t == BaseParser.__ERROR__\n" }
         )* { "_t=BaseParser.__ERROR__; begin  # or\n#{join(xs, "\n")}#{outdent}end while false\n" };
@@ -259,4 +268,14 @@ public parser MMetaCompiler {
     } ;
 
     start: ! r=destruct end           { r } ;
+
+    def lookup_token(name:Object) {
+      @tokens ||= ArrayList.new
+      index = @tokens.indexOf(name)
+      if index == -1
+        index = @tokens.size
+        @tokens.add(name)
+      end
+      return index
+    }
 }

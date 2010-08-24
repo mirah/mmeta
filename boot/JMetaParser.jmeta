@@ -76,6 +76,7 @@ public parser JMetaParser {
     rewrite_expr  : . n=name p=parens                                   { return new Object[] {"HLit", ((String)n)+p}; }
                   | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, c]}
                   | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]}
+                  | ."$" n=name                                         { [:TLit, n] }
                   | .s=tsString                                         { [:HStr, s] }
                   | . n=name                                            { [:HLit, n] }
                   | ."[" xs=listOf(:rewrite_expr, ",") ."]"             { [:HList] + xs };
@@ -93,7 +94,10 @@ public parser JMetaParser {
                   | "{"!  xs=cbraces*    "}"                            { return new Object[] {"Act", join(xs)}; }
                   | "->"! s=rewrite_expr                                 { [:SAct, s] };
     semPred       : "?{"! xs=cbraces*    "}"                            { return new Object[] {"Pred", join(xs)}; } ;
-
+    synPred       : ."(" p=expr .")" ."=>" e=expr4 t=synPredTail        { [:SynPred, [:Peek, p], e, t] };
+    synPredTail   : ."|" (synPred | expr4)
+                  | empty;
+    token         : "$" n=name                                          { [:Token, n] };
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
     expr4         : xs=expr3*                                           { [:And] + xs  } ;
@@ -106,10 +110,11 @@ public parser JMetaParser {
     expr2         : "~"! x=expr2                                        { [:Not,  x]   }
                   | "&"! x=expr1                                        { [:Peek, x]   }
                   | expr1 ;
-    expr1         : wsdot | any | error | semPred | semAction | application
+    expr1         : wsdot | any | error | semPred | semAction | application | token
                   | x=(k("null")|k("true")|k("false"))                  { [:HLit, x] }
                   | string | symbol | number
                   | "["! .x=expr ."]"                                    { [:List, x] }
+                  | synPred
                   | "("! .x=expr .")"                                    { x } ;
 
     rule          : &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
