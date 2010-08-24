@@ -128,7 +128,7 @@ public parser MMetaCompiler {
     Pred expr=_ {
         "_t = (#{expr}) ? nil : BaseParser.__ERROR__;"
     };
-    SynPred pred=trans indent t=trans e=trans {
+    SynPred! pred=trans indent t=trans e=trans {
       "#{pred}\n#{outdent}unless _t == BaseParser.__ERROR__\n#{t}\n#{@_}else\n#{e}\n#{@_}end\n"
     };
 

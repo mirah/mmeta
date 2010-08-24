@@ -96,7 +96,7 @@ public parser JMetaParser {
     semPred       : "?{"! xs=cbraces*    "}"                            { return new Object[] {"Pred", join(xs)}; } ;
     synPred       : ."(" p=expr .")" ."=>" e=expr4 t=synPredTail        { [:SynPred, [:Peek, p], e, t] };
     synPredTail   : ."|" (synPred | expr4)
-                  | empty;
+                  | {[:Pred, "false"]};
     token         : "$" n=name                                          { [:Token, n] };
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
@@ -197,6 +197,7 @@ parser JMetaPass {
     List     x=trans              { [:List,  x]   } ;
     Set      n=_ x=trans          { [:Set,  n, x] } ;
     Rule     n=_ x=trans          { [:Rule, n, x] } ;
+    SynPred  xs=trans*            { [:SynPred] + xs };
 
     start: r=destruct end { r }
          | r=_ end        { r }
