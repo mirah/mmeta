@@ -307,7 +307,7 @@ public class BaseParser {
     /// '_'
     public Object _any() {
         if (! args.isEmpty()) return args.pop();
-        _enter("_any");
+
         if (_string != null) {
             if (_pos < _string.length()) {
                 char c = _string.charAt(_pos++);
@@ -316,13 +316,13 @@ public class BaseParser {
                         lines.put(_pos, lines.size());
                     }
                 }
-                return _exit(c);
+                return c;
             } else {
-                return _exit(ERROR);
+                return ERROR;
             }
         }
         if (_list != null)
-            if (_pos < _list.length) return _exit(_list[_pos++]); else return _exit(ERROR);
+            if (_pos < _list.length) return _exit(_list[_pos++]); else return ERROR;
         throw new IllegalStateException("no _list nor _string??");
     }
 

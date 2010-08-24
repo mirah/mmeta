@@ -138,45 +138,100 @@ parser MirahParser {
                                             | dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
                                             | ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
                                             )* {tangle(h, tail)};
-  primary2
+
+  primary2: t=&tok {
+    if t == 'super'
+      primary2_super
+    elsif t == '('
+      primary2_lparen
+    elsif t == 'begin'
+      primary2_begin
+    elsif t == '['
+      primary2_lbrack
+    elsif t == '{' # }
+      primary2_lbrace
+    elsif t == 'yield'
+      primary2_yield
+    elsif t == '!'
+      primary2_bang
+    elsif t == 'if'
+      primary2_if
+    elsif t == 'unless'
+      primary2_unless
+    elsif t == 'while'
+      primary2_while
+    elsif t == 'until'
+      primary2_until
+    elsif t == 'for'
+      primary2_for
+    elsif t == 'class'
+      primary2_class
+    elsif t == 'def'
+      primary2_def
+    elsif t == 'break'
+      primary2_break
+    elsif t == 'next'
+      primary2_next
+    elsif t == 'redo'
+      primary2_redo
+    elsif t == 'retry'
+      primary2_retry
+    elsif t == 'return'
+      primary2_return
+    elsif t == '?' || t == '"' || t == "'" || t == '<'
+      _push(:string)
+      memo
+    elsif t == '/'
+      regexp
+    else
+      primary2_id
+    end
+  };
+  primary2_super
          : k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
          | k(:super) iter=brace_block -> ^(Super [] iter)
-         | k(:super) -> ^(ZSuper)
-         | op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
-         | op=operation iter=brace_block -> ^(FCall op [] iter)| colon3 c=constant ~assignment_op -> ^(Colon3 c)
-         | k(:begin)! b=bodystmt k(:end) -> ^(Begin b)
-         | . "(" opt_nl e=expr opt_nl . ")" { e }
-         | . "(" opt_nl e=compstmt opt_nl . ")" {
+         | k(:super) -> ^(ZSuper);
+  primary2_lparen
+         : . "(" opt_nl e=compstmt opt_nl . ")" {
            unless e.nil?
              ae = Ast(e)
              ae.start_position = pos(_start)
              ae.end_position = pos(_pos)
            end
            e
-         }
-         | isBEG . "[" opt_nl . "]" -> ^(ZArray)
-         | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+)
-         | . "{" opt_nl . "}" -> ^(Hash)
-         | . "{" opt_nl a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+)
-         | k(:yield) . "(" opt_nl . ")" -> ^(Yield)
+         };
+  primary2_begin
+         : k(:begin)! b=bodystmt k(:end) -> ^(Begin b);
+  primary2_lbrack
+         : isBEG . "[" opt_nl . "]" -> ^(ZArray)
+         | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+);
+  primary2_lbrace
+         : . "{" opt_nl . "}" -> ^(Hash)
+         | . "{" opt_nl a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+);
+  primary2_yield
+         : k(:yield) . "(" opt_nl . ")" -> ^(Yield)
          | k(:yield) . "(" opt_nl a=call_args opt_nl . ")" -> ^(Yield a+)
-         | k(:yield) -> ^(Yield)
-         | ."!" ."(" opt_nl .")" -> ^(Call "!" ^(Nil))
-         | ."!" ."(" opt_nl e=value(expr) opt_nl .")" -> ^(Call "!" e)
-         | isBEG2 k(:if)! opt_nl cond=value(expr) Then body=compstmt tail=if_tail k(:end)
-           -> ^(If cond body tail)
-         | isBEG2 k(:unless)! opt_nl cond=value(expr) Then body=compstmt tail=Else? k(:end)
-           -> ^(If cond tail body)
-         | isBEG2 k(:while)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
-           -> ^(While cond body)
-         | isBEG2 k(:until)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
-           -> ^(Until cond body)
-         # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
-         #   -> ^(Case val body)
-         # TODO is this too restrictive?
-         | k(:for)! opt_nl var=variable k(:in) opt_nl COND list=value(expr) Do body=compstmt k(:end)
-           -> ^(For var body list)
-         | k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
+         | k(:yield) -> ^(Yield);
+  primary2_bang
+         : ."!" ."(" opt_nl .")" -> ^(Call "!" ^(Nil))
+         | ."!" ."(" opt_nl e=value(expr) opt_nl .")" -> ^(Call "!" e);
+  primary2_if
+         : isBEG2 k(:if)! opt_nl cond=value(expr) Then body=compstmt tail=if_tail k(:end)
+           -> ^(If cond body tail);
+  primary2_unless
+         : isBEG2 k(:unless)! opt_nl cond=value(expr) Then body=compstmt tail=Else? k(:end)
+           -> ^(If cond tail body);
+  primary2_while
+         : isBEG2 k(:while)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+           -> ^(While cond body);
+  primary2_until
+         : isBEG2 k(:until)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+           -> ^(Until cond body);
+  primary2_for
+         : k(:for)! opt_nl var=variable k(:in) opt_nl COND list=value(expr) Do body=compstmt k(:end)
+           -> ^(For var body list);
+  primary2_class
+         : k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
            term b=compstmt k(:end) {b ||= @nil}
            -> ^(SClass e b)
          | k(:class)! n=cpath s=superclass
@@ -184,23 +239,27 @@ parser MirahParser {
                        # sense for mirah. Maybe rescuing exceptions
                        # in the static initializer?
            k(:end) {b ||= @nil}
-           -> ^(Class n b s)
-         # | module
-         | Def k(:self)! . dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
+           -> ^(Class n b s);
+  primary2_def
+         : Def k(:self)! . dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
            -> ^(DefStatic name args body)
          | Def! name=fname args=f_arglist body=bodystmt k(:end)
-           -> ^(Def name args body)
+           -> ^(Def name args body);
+  primary2_break: k(:break) -> ^(Break);
+  primary2_next: k(:next) -> ^(Next);
+  primary2_redo: k(:redo) -> ^(Redo);
+  primary2_retry: k(:retry) -> ^(Retry);
+  primary2_return: k(:return) -> ^(Return ^(Nil));
+  primary2_id
+         : op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
+         | op=operation iter=brace_block -> ^(FCall op [] iter)| colon3 c=constant ~assignment_op -> ^(Colon3 c)
+         # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
+         #   -> ^(Case val body)
+         # TODO is this too restrictive?
+         # | module
 
          # | k(:lambda) lambda
-
-         | k(:break) -> ^(Break)
-         | k(:next) -> ^(Next)
-         | k(:redo) -> ^(Redo)
-         | k(:retry) -> ^(Retry)
-         | k(:return) -> ^(Return ^(Nil))
          | literal
-         | memo(:string)
-         | regexp
          | variable;
 
   f_arglist: ."("! opt_nl a=f_args opt_nl .")" BEG {a}
@@ -296,7 +355,7 @@ parser MirahParser {
   arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b]))* {tangle(a, t)};
   arg8: a=arg9 t=(."+" opt_nl b=arg8 -> ^(Call "+" ["PH"] [b])
                  |."-" opt_nl b=arg8 -> ^(Call "-" ["PH"] [b]))* {tangle(a, t)};
-  arg9: a=arg10 t=(. op=oneOf("*/%") opt_nl b=arg9 -> ^(Call op ["PH"] [b]))* {tangle(a, t)};
+  arg9: a=arg10 t=(. op=oneOf("*%/") opt_nl b=arg9 -> ^(Call op ["PH"] [b]))* {tangle(a, t)};
   arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
        | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
        | uminus v=arg11 -> ^(Call "-@" v)
@@ -372,6 +431,8 @@ parser MirahParser {
   literal: numeric | symbol;
 
   numeric: floatLiteral | fixnum;
+
+  tok: . (identifierChar+ oneOf("?!")? | _) {text(_real_start, _pos).intern};
 
   constant: . &upperCase ~reswords ~label h=upperCase t=identifierChar* {"#{h}#{join(t)}"};
   identifier: . &identifierStart ~reswords ~label identifier2;
@@ -523,13 +584,7 @@ parser MirahParser {
                 | v=apply(rule) { @memo.put(position, v); v });
 
   reswords: ?{_rpeek.indexOf(".") == -1}
-          ( k(:__LINE__)|k(:__FILE__)|k(:__ENCODING__)|k(:BEGIN)|k(:END)|k(:alias)
-          | k(:and)|k(:begin)|k(:break)|k(:case)|k(:class)|k(:def)|k(:defined)|k(:do)
-          | k(:else)|k(:elsif)|k(:end)|k(:ensure)|k(:false)|k(:for)|k(:in)|k(:module)
-          | k(:next)|k(:nil)|k(:not)|k(:or)|k(:redo)|k(:rescue)|k(:retry)|k(:return)
-          | k(:self)|k(:super)|k(:then)|k(:true)|k(:undef)|k(:when)|k(:yield)|k(:if)
-          | k(:unless)|k(:while)|k(:until)
-          );
+            ?{@reswords.region(_pos, _string.length);@reswords.lookingAt};
 
   def self.parse_args(args:String[]) {
     argc = args.length
@@ -537,7 +592,7 @@ parser MirahParser {
       BaseParser.tracing = true
       argc -= 1
     elsif args[0].equals "--tree"
-      BaseParser.debug_parse_true = true
+      BaseParser.debug_parse_tree = true
       argc -= 1
     end
     if argc > 0
@@ -583,6 +638,10 @@ parser MirahParser {
     @DECIMAL = "0123456789"
     @OCTAL = "01234567"
     @BINARY = "01"
+    @RESWORDS = /(__LINE__|__FILE__|__ENCODING__|BEGIN|END|alias|and|\
+begin|break|case|class|def|defined|do|else|elsif|end|ensure|false|\
+for|in|module|next|nil|not|or|redo|rescue|retry|return|self|super|\
+then|true|undef|when|yield|if|unless|while|until)\b/
     @heredocs = LinkedList.new
     @memo = {}
     @nil = Ast.new('Nil')
@@ -593,6 +652,10 @@ parser MirahParser {
       "InstVarAssign" => "InstVar",
       "ClassVarAssign" => "ClassVar",
     }
+  }
+
+  def init {
+    @reswords = @RESWORDS.matcher(_string)
   }
 
   def oneOf() {
