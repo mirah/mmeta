@@ -62,8 +62,11 @@ end
 
 namespace :test do
   task :compile => ['dist/mmeta.jar', 'build/test'] do
+    cp "test/MirahLexer.java", "build/test/"
+    cp "test/Tokens.java", "build/test/"
     ant.javac :srcDir => 'build/test', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
-    mirahc 'test', :dir=>'build', :dest=>'build', :options=>['--classpath', 'dist/jmeta-runtime.jar']
+    mirahc 'test', :dir=>'build', :dest=>'build',
+        :options=>['--classpath', "dist/jmeta-runtime.jar:#{Dir.pwd}/build"]
   end
   task :calc => :'test:compile' do
     runjava('Calculator', '4 * 3 - 2', :outputproperty=>'test.output',

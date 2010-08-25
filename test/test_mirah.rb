@@ -85,6 +85,7 @@ EOF
     assert_parse("[Script, [ClassVar, cbar]]", '@@cbar')
     assert_parse("[Script, [Identifier, a]]", 'a')
     assert_parse("[Script, [Identifier, b]]", 'b')
+    assert_parse("[Script, [Identifier, end_pos]]", 'end_pos')
     assert_parse("[Script, [Constant, A]]", 'A')
     assert_parse("[Script, [Constant, B]]", 'B')
     assert_parse("[Script, [FCall, B!]]", 'B!')

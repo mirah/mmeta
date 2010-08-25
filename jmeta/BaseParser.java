@@ -128,11 +128,12 @@ public class BaseParser {
     public void _pos_set(int pos) { _pos = pos; }
     public String _string;
     public String _string() { return _string; }
-    public void _string_set(String string) { _string = string; }
+    public char[] _chars;
+    public char[] _chars() { return _chars; }
     public Object[] _list;
     public Object[] _list() { return _list; }
     public void _list_set(Object[] list) { _list = list; }
-    private Token cached_token = new Token(-1, -1, -1, -1);
+    private Token<?> cached_token = new Token(null, -1, -1, -1);
 
     public Object _memoize(String s, int p, Object o) {
         HashMap<String, Memoize> map = _positions.get(p);
@@ -207,7 +208,7 @@ public class BaseParser {
         return trace("> try:", s, NOT_MEMOIZED);
     }
 
-    void _init() {
+    public void _init() {
         _pos = 0;
         _positions = new SparseArrayList<HashMap<String, Memoize>>();
         _lefts = new ArrayDeque<HashSet<String>>();
@@ -222,7 +223,10 @@ public class BaseParser {
 
     /// init parser with String, use parser.rule() to actually parse
     public void init(String s) {
-        _string = s; _list = null; _init();
+        _string = s;
+        _chars = s.toCharArray();
+        _list = null;
+        _init();
     }
 
     /// init parser with a Object[] array, @see init(String s);
@@ -311,8 +315,8 @@ public class BaseParser {
         if (! args.isEmpty()) return args.pop();
 
         if (_string != null) {
-            if (_pos < _string.length()) {
-                char c = _string.charAt(_pos++);
+            if (_pos < _chars.length) {
+                char c = _chars[_pos++];
                 if (c == '\n' || (c == '\r' && _cpeek() != '\n')) {
                     if (!lines.containsKey(_pos)) {
                         lines.put(_pos, lines.size());
@@ -355,7 +359,7 @@ public class BaseParser {
             throw new IllegalStateException("'col' is only available in string parsing");
         int pos = _pos - 1;
 
-        while (pos >= 0 && _string.charAt(pos) != '\n') pos--;
+        while (pos >= 0 && _chars[pos] != '\n') pos--;
         return _pos - pos - 1;
     }
 
@@ -382,8 +386,8 @@ public class BaseParser {
     }
 
     public char _cpeek() {
-        if (_pos < _string.length()) {
-            return _string.charAt(_pos);
+        if (_pos < _chars.length) {
+            return _chars[_pos];
         } else {
             return '\0';
         }
@@ -398,7 +402,7 @@ public class BaseParser {
 
     public Object _peek() {
         if (_string != null)
-            if (_pos < _string.length()) return _string.charAt(_pos); else return ERROR;
+            if (_pos < _chars.length) return _chars[_pos]; else return ERROR;
         if (_list != null)
             if (_pos < _list.length) return _list[_pos]; else return ERROR;
         throw new IllegalStateException("no _list nor _string??");
@@ -433,11 +437,17 @@ public class BaseParser {
         if (_string == null)
             throw new IllegalStateException("string ('\""+ s +"\"') is only available in string parsing");
         int p = _pos;
-        for (int i = 0; i < s.length(); i++) {
-            if (_peek() == ERROR) { _pos = p; ERROR.last = "'"+ s +"'"; return _exit(ERROR); }
-            if (_cpeek() != s.charAt(i)) { _pos = p; ERROR.last = "'"+ s +"'"; return _exit(ERROR); }
-            _any();
+        if (p + s.length() > _chars.length) {
+          ERROR.last = "'"+ s +"'";
+          return ERROR;
         }
+        for (int i = 0; i < s.length(); i++) {
+          if (s.charAt(i) != _chars[p++]) {
+            ERROR.last = "'"+ s +"'";
+            return _exit(ERROR);
+          }
+        }
+        _pos = p;
         return _exit(trace(" ok _str():", s));
     }
 
@@ -580,21 +590,24 @@ public class BaseParser {
         return false;
     }
     
-    public Token build_token(int type, int pos, int start) {
-      return new Token(type, pos, start, _pos);
+    public <T extends Enum<T>> Token<T> build_token(Enum<T> type, int pos, int start) {
+      return new Token<T>(type, pos, start, _pos);
+    }
+    public <T extends Enum<T>> Token<T> build_token(Enum<T> type, int pos, int start, int endpos) {
+      return new Token<T>(type, pos, start, endpos);
     }
     
     public Object lex() {
       return ERROR;
     }
     
-    public Object _lex(int type) {
+    public Object _lex(Enum<?> type) {
       if (cached_token.pos != _pos) {
         Object t = lex();
         if (t == ERROR) {
-          cached_token = new Token(-1, _pos, _pos, _pos);
+          cached_token = new Token(null, _pos, _pos, _pos);
         } else {
-          cached_token = (Token)t;
+          cached_token = (Token<?>)t;
         }
       }
       if (cached_token.type == type) {
@@ -606,15 +619,15 @@ public class BaseParser {
       }
     }
     
-    public class Token {
-      public Token(int type, int pos, int start, int end) {
+    public class Token<T extends Enum<T>> {
+      public Token(Enum<T> type, int pos, int start, int end) {
         this.type = type;
         this.pos = pos;
         this.startpos = start == -1 ? pos : start;
         this.endpos = end;
       }
       
-      public final int type;
+      public final Enum<T> type;
       public final int pos;
       public final int startpos;
       public final int endpos;
