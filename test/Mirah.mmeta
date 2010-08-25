@@ -438,49 +438,49 @@ parser MirahParser {
 
   lex: {_exit(nil);_enter('<skip>')} .
        ( "@" ( "@" identifier2 -> $ClassVar | identifier2 -> $InstVar)
-       | "BEGIN"	(oneOf("?!") -> $FID | ~identifierChar -> $BEGIN)
-       | "END"	(oneOf("?!") -> $FID | ~identifierChar -> $END)
-       | "__ENCODING__"	(oneOf("?!") -> $FID | ~identifierChar -> $__ENCODING__)
-       | "__FILE__"	(oneOf("?!") -> $FID | ~identifierChar -> $__FILE__)
-       | "__LINE__"	(oneOf("?!") -> $FID | ~identifierChar -> $__LINE__)
-       | "alias"	(oneOf("?!") -> $FID | ~identifierChar -> $alias)
-       | "and"	(oneOf("?!") -> $FID | ~identifierChar -> $and)
-       | "begin"	(oneOf("?!") -> $FID | ~identifierChar -> $begin)
-       | "break"	(oneOf("?!") -> $FID | ~identifierChar -> $break)
-       | "case"	(oneOf("?!") -> $FID | ~identifierChar -> $case)
-       | "class"	(oneOf("?!") -> $FID | ~identifierChar -> $class)
-       | "def"	(oneOf("?!") -> $FID | ~identifierChar -> $def)
-       | "defined"	(oneOf("?!") -> $FID | ~identifierChar -> $defined)
-       | "do"	(oneOf("?!") -> $FID | ~identifierChar -> $do)
-       | "else"	(oneOf("?!") -> $FID | ~identifierChar -> $else)
-       | "elsif"	(oneOf("?!") -> $FID | ~identifierChar -> $elsif)
-       | "end"	(oneOf("?!") -> $FID | ~identifierChar -> $end)
-       | "ensure"	(oneOf("?!") -> $FID | ~identifierChar -> $ensure)
-       | "false"	(oneOf("?!") -> $FID | ~identifierChar -> $false)
-       | "for"	(oneOf("?!") -> $FID | ~identifierChar -> $for)
-       | "if"	(oneOf("?!") -> $FID | ~identifierChar -> $if)
-       | "in"	(oneOf("?!") -> $FID | ~identifierChar -> $in)
-       | "module"	(oneOf("?!") -> $FID | ~identifierChar -> $module)
-       | "next"	(oneOf("?!") -> $FID | ~identifierChar -> $next)
-       | "nil"	(oneOf("?!") -> $FID | ~identifierChar -> $nil)
-       | "not"	(oneOf("?!") -> $FID | ~identifierChar -> $not)
-       | "or"	(oneOf("?!") -> $FID | ~identifierChar -> $or)
-       | "redo"	(oneOf("?!") -> $FID | ~identifierChar -> $redo)
-       | "rescue"	(oneOf("?!") -> $FID | ~identifierChar -> $rescue)
-       | "retry"	(oneOf("?!") -> $FID | ~identifierChar -> $retry)
-       | "return"	(oneOf("?!") -> $FID | ~identifierChar -> $return)
-       | "self"	(oneOf("?!") -> $FID | ~identifierChar -> $self)
-       | "super"	(oneOf("?!") -> $FID | ~identifierChar -> $super)
-       | "then"	(oneOf("?!") -> $FID | ~identifierChar -> $then)
-       | "true"	(oneOf("?!") -> $FID | ~identifierChar -> $true)
-       | "undef"	(oneOf("?!") -> $FID | ~identifierChar -> $undef)
-       | "unless"	(oneOf("?!") -> $FID | ~identifierChar -> $unless)
-       | "until"	(oneOf("?!") -> $FID | ~identifierChar -> $until)
-       | "when"	(oneOf("?!") -> $FID | ~identifierChar -> $when)
-       | "while"	(oneOf("?!") -> $FID | ~identifierChar -> $while)
-       | "yield"	(oneOf("?!") -> $FID | ~identifierChar -> $yield)
-       | upperCase identifierChar* -> $CONSTANT
-       | identifier2 -> $IDENTIFIER
+       | "BEGIN"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $BEGIN)
+       | "END"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $END)
+       | "__ENCODING__"  (oneOf("?!") ~"="-> $FID | ~identifierChar -> $__ENCODING__)
+       | "__FILE__"      (oneOf("?!") ~"="-> $FID | ~identifierChar -> $__FILE__)
+       | "__LINE__"      (oneOf("?!") ~"="-> $FID | ~identifierChar -> $__LINE__)
+       | "alias"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $alias)
+       | "and"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $and)
+       | "begin"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $begin)
+       | "break"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $break)
+       | "case"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $case)
+       | "class"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $class)
+       | "def"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $def)
+       | "defined"       (oneOf("?!") ~"="-> $FID | ~identifierChar -> $defined)
+       | "do"            (oneOf("?!") ~"="-> $FID | ~identifierChar -> $do)
+       | "else"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $else)
+       | "elsif"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $elsif)
+       | "end"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $end)
+       | "ensure"        (oneOf("?!") ~"="-> $FID | ~identifierChar -> $ensure)
+       | "false"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $false)
+       | "for"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $for)
+       | "if"            (oneOf("?!") ~"="-> $FID | ~identifierChar -> $if)
+       | "in"            (oneOf("?!") ~"="-> $FID | ~identifierChar -> $in)
+       | "module"        (oneOf("?!") ~"="-> $FID | ~identifierChar -> $module)
+       | "next"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $next)
+       | "nil"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $nil)
+       | "not"           (oneOf("?!") ~"="-> $FID | ~identifierChar -> $not)
+       | "or"            (oneOf("?!") ~"="-> $FID | ~identifierChar -> $or)
+       | "redo"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $redo)
+       | "rescue"        (oneOf("?!") ~"="-> $FID | ~identifierChar -> $rescue)
+       | "retry"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $retry)
+       | "return"        (oneOf("?!") ~"="-> $FID | ~identifierChar -> $return)
+       | "self"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $self)
+       | "super"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $super)
+       | "then"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $then)
+       | "true"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $true)
+       | "undef"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $undef)
+       | "unless"        (oneOf("?!") ~"="-> $FID | ~identifierChar -> $unless)
+       | "until"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $until)
+       | "when"          (oneOf("?!") ~"="-> $FID | ~identifierChar -> $when)
+       | "while"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $while)
+       | "yield"         (oneOf("?!") ~"="-> $FID | ~identifierChar -> $yield)
+       | upperCase identifierChar* (oneOf("?!") -> $FID | -> $CONSTANT)
+       | identifier2 (oneOf("?!") ~"=" -> $FID | -> $IDENTIFIER)
        | _ -> $UNKNOWN
        );
 
@@ -495,16 +495,17 @@ parser MirahParser {
                           )
                 ) ~(":" ~":") {Token(t).text};
   identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
-  cvar: . "@@" n=identifierChar+ {join(n)};
-  ivar: . "@" n=identifierChar+ {join(n)};
-  fid: . t=identifierChar+ p=oneOf("?!") ~"=" {"#{join(t)}#{p}"};
+  cvar: t=$ClassVar {Token(t).text.substring(2)};
+  ivar: t=$InstVar {Token(t).text.substring(1)};
+  fid: t=$FID {Token(t).text};
   fname: . n=identifierChar+ t=( b=oneOf("!?") ~"=" {b}
                                | "=" ~(oneOf("~>=")|"\n>") {"="}
                                | {""})
            {"#{join(n)}#{t}"}
        | op;
 
-  op: . ( "<=>" | "===" | "==" | "=~" | "!~" | "<=" | ">=" | "<<<"
+  op: ($UNKNOWN)=>
+      . ( "<=>" | "===" | "==" | "=~" | "!~" | "<=" | ">=" | "<<<"
         | "<<" | ">>" | "!=" | "**" | "[]=" | "[]" | "+@" | "-@"
         | oneOf("&|^<>+-*/%!~")
         );
@@ -522,10 +523,10 @@ parser MirahParser {
             | ."<" c=cpath term  # Should this be expr_value instead of cpath?
               {c};
 
-  variable: k(:nil)                                   -> ^(Nil)
-          | k(:self)                                  -> ^(Self)
-          | k(:true)                                  -> ^(True)
-          | k(:false)                                 -> ^(False)
+  variable: $nil                                   -> ^(Nil)
+          | $self                                  -> ^(Self)
+          | $true                                  -> ^(True)
+          | $false                                 -> ^(False)
           | v=cvar                                    -> ^(ClassVar v)
           | v=ivar                                    -> ^(InstVar v)
           | n=fid                                     -> ^(FCall n)

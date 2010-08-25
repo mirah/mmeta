@@ -460,4 +460,8 @@ EOF
      assert_parse("[Script, [Hash, [Assoc, [String, a], [String, b]], [Assoc, [Symbol, c], [Identifier, d]]]]",
                   "{\n'a' => 'b', c:\nd\n}")
    end
+
+   def test_ne
+     assert_parse("[Script, [Call, !=, [Identifier, foo], [[Identifier, bar]]]]", "foo!=bar")
+   end
 end
