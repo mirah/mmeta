@@ -310,6 +310,12 @@ public class BaseParser {
         return _sym((String) r);
     }
 
+    public void note_newline(int pos) {
+      if (!lines.containsKey(pos)) {
+          lines.put(pos, lines.size());
+      }
+    }
+
     /// '_'
     public Object _any() {
         if (! args.isEmpty()) return args.pop();
@@ -318,9 +324,7 @@ public class BaseParser {
             if (_pos < _chars.length) {
                 char c = _chars[_pos++];
                 if (c == '\n' || (c == '\r' && _cpeek() != '\n')) {
-                    if (!lines.containsKey(_pos)) {
-                        lines.put(_pos, lines.size());
-                    }
+                    note_newline(_pos);
                 }
                 return c;
             } else {
@@ -602,6 +606,16 @@ public class BaseParser {
     }
     
     public Object _lex(Enum<?> type) {
+      _lex();
+      if (cached_token.type == type) {
+        return cached_token;
+      } else {
+        _pos = cached_token.pos;
+        return ERROR;
+      }
+    }
+
+    public Token _lex() {
       if (cached_token.pos != _pos) {
         Object t = lex();
         if (t == ERROR) {
@@ -610,15 +624,10 @@ public class BaseParser {
           cached_token = (Token<?>)t;
         }
       }
-      if (cached_token.type == type) {
-        _pos = cached_token.endpos;
-        return cached_token;
-      } else {
-        _pos = cached_token.pos;
-        return ERROR;
-      }
+      _pos = cached_token.endpos;
+      return cached_token;
     }
-    
+
     public class Token<T extends Enum<T>> {
       public Token(Enum<T> type, int pos, int start, int end) {
         this.type = type;

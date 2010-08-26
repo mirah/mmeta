@@ -465,4 +465,8 @@ EOF
    def test_ne
      assert_parse("[Script, [Call, !=, [Identifier, foo], [[Identifier, bar]]]]", "foo!=bar")
    end
+
+   def test_command
+     assert_parse("[Script, [Begin, [Nil]]]", "begin  # hi\nend")
+   end
 end

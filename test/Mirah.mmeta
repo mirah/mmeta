@@ -6,6 +6,7 @@ import java.util.ArrayList
 import java.util.List
 import java.util.LinkedList
 import java.util.Collections
+import java.util.EnumSet
 import jmeta.Ast
 import 'Token', 'jmeta.BaseParser$Token'
 
@@ -55,7 +56,7 @@ parser MirahParser {
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
   start: ! prog=compstmt . end heredoc -> ^(Script prog);
-  compstmt: terms* a=(s=statement terms+ {s})*
+  compstmt: terms? a=(s=statement terms {s})*
             b=statement?
             {addToBlock(a, b)};
 
@@ -75,10 +76,13 @@ parser MirahParser {
     node || @nil
   };
 
-  term: . (";" | nl);
-  terms: . (";" | nl) (. ";")*;
+  term: ($NL)=>nl
+      | $Semi;
+  terms: ( ($NL)=>nl
+         | $Semi
+         )+;
 
-  nl: "\n" heredoc;
+  nl: $NL heredoc;
 
   statement: f=statement2 b= ->^(PH) t=( k(:if) c=value(expr) -> ^(If c b nil)
                                        | k(:unless) c=value(expr) -> ^(If c nil b)
@@ -132,63 +136,38 @@ parser MirahParser {
                                  -> ^(Call op ["PH"] a))* {tangle(h, t)};
 
   primary scope(@BEG, @cond)
-         : h=value(primary2) t=->^(PH) tail=( colons b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const t b)
-                                            | dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
-                                            | colons op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
-                                            | colons op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
-                                            | dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
-                                            | ."[" opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
+         : h=value(primary2) t=->^(PH) tail=( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
+                                            | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
+                                            | (colons)=> colons (op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
+                                                                 |b=constant ~(paren_args|call_args|assignment_op) -> ^(Colon2Const t b)
+                                                                 |op=operation3 ~assignment_op iter=brace_block? -> ^(Call op t iter)
+                                                                 )
+                                            | ($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~assignment_op -> ^(Call "[]" t a iter)
                                             )* {tangle(h, tail)};
 
-  primary2: k=&tok {
-    t = k.hashCode
-    if t == 109801339
-      primary2_super
-    elsif t == 40
-      primary2_lparen
-    elsif t == 93616297
-      primary2_begin
-    elsif t == 91
-      primary2_lbrack
-    elsif t == 123
-      primary2_lbrace
-    elsif t == 114974605
-      primary2_yield
-    elsif t == 33
-      primary2_bang
-    elsif t == 3357
-      primary2_if
-    elsif t == -840451150
-      primary2_unless
-    elsif t == 113101617
-      primary2_while
-    elsif t == 111443806
-      primary2_until
-    elsif t == 101577
-      primary2_for
-    elsif t == 94742904
-      primary2_class
-    elsif t == 99333
-      primary2_def
-    elsif t == 94001407
-      primary2_break
-    elsif t == 3377907
-      primary2_next
-    elsif t == 3496446
-      primary2_redo
-    elsif t == 108405416
-      primary2_retry
-    elsif t == -934396624
-      primary2_return
-    elsif t == 63 || t == 34 || t == 39 || t == 60
-      _push(:string)
-      memo
-    elsif t == 47
-      regexp
-    else
-      primary2_id
-    end
-  };
+  primary2: ($Super)=> primary2_super
+          | ($LParen)=> primary2_lparen
+          | ($Begin)=> primary2_begin
+          | ($LBrack)=> primary2_lbrack
+          | ($LBrace)=> primary2_lbrace
+          | ($Yield)=> primary2_yield
+          | ($Bang)=> primary2_bang
+          | ($If)=> primary2_if
+          | ($Unless)=> primary2_unless
+          | ($While)=> primary2_while
+          | ($Until)=> primary2_until
+          | ($For)=> primary2_for
+          | ($Class)=> primary2_class
+          | ($Def)=> primary2_def
+          | ($Break)=> primary2_break
+          | ($Next)=> primary2_next
+          | ($Redo)=> primary2_redo
+          | ($Retry)=> primary2_retry
+          | ($Return)=> primary2_return
+          | ($Quote|$Question|$LShift)=> memo(:string)
+          | ($Slash)=> regexp
+          | primary2_id
+          ;
   primary2_super
          : k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
          | k(:super) iter=brace_block -> ^(Super [] iter)
@@ -252,17 +231,18 @@ parser MirahParser {
   primary2_redo: k(:redo) -> ^(Redo);
   primary2_retry: k(:retry) -> ^(Retry);
   primary2_return: k(:return) -> ^(Return ^(Nil));
-  primary2_id
-         : op=operation a=paren_args iter=brace_block? -> ^(FCall op a iter)
-         | op=operation iter=brace_block -> ^(FCall op [] iter)| colon3 c=constant ~assignment_op -> ^(Colon3 c)
-         # | k(:case)! val=(value(expr))? terms? body=case_body k(:end)
-         #   -> ^(Case val body)
-         # TODO is this too restrictive?
-         # | module
-
-         # | k(:lambda) lambda
-         | literal
-         | variable;
+  primary2_id: ($Colons)=> colon3 c=constant ~assignment_op -> ^(Colon3 c)
+             | ($Digit)=> numeric
+             | ($Colon)=> symbol
+             | (($FID|$CONSTANT|$IDENTIFIER) ($LParen|$LBrace|$Do))=>
+               ( op=operation ( ($LParen)=>
+                                a=paren_args iter=brace_block? -> ^(FCall op a iter)
+                              | ($LBrace|$Do)=>
+                                iter=brace_block -> ^(FCall op [] iter)
+                              )
+               | variable
+               )
+             | variable;
 
   f_arglist: ."("! opt_nl a=f_args opt_nl .")" BEG {a}
            | a=f_args term {a};
@@ -314,7 +294,9 @@ parser MirahParser {
   block_call: c=command b=do_block h={n=Ast(Ast(c).clone); n.add(b);n} t=(dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op ["PH"] a))* {tangle(h, t)};
 
   paren_args: ."("! opt_nl c=call_args? opt_nl .")" {c.nil? ? Object(ArrayList.new) : c};
-  opt_paren_args: paren_args | ~(call_args | assignment_op) { nil };
+  opt_paren_args: ($EOF)=> {nil}
+                | ($LParen)=> paren_args
+                | ~(call_args | assignment_op) { nil };
 
   maybe_rescue: a=arg k(:rescue) b=value(arg)
                 -> ^(Rescue a [^(RescueClause [] nil b)] nil)
@@ -371,13 +353,14 @@ parser MirahParser {
   arg_value: a=arg {checkExpression(a)};
 
   trailer: . ("," | nl)?;
-  operation: fid | constant | identifier;
-  operation2: fid | constant | identifier | op;
-  operation3: fid | ~constant identifier | op;
-  dot: opt_nl ."." ~"." opt_nl;
-  colons: "::" opt_nl;
+  operation: ($FID)=>fid | ($CONSTANT)=>constant | ($IDENTIFIER|lastdot)=> identifier;
+  operation2: ($FID)=>fid | ($CONSTANT)=>constant | ($IDENTIFIER)=>identifier
+            | (lastdot)=> (identifier | op) | op;
+  operation3: ($FID)=>fid | ($IDENTIFIER)=>identifier |(lastdot)=> (identifier | op) | op;
+  dot: opt_nl $Dot ~"." opt_nl;
+  colons: $Colons opt_nl;
   dot_or_colon: dot | colons;
-  opt_nl: (. nl)*;
+  opt_nl: ($NL)=>nl+|;
 
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
@@ -417,8 +400,8 @@ parser MirahParser {
 
   lhs: t=value(primary) ."[" opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
      | t=value(primary) dot_or_colon n=constant -> ^(ConstAssign ^(Colon2Const t n))
-     | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | t=value(primary) dot_or_colon n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+     | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | var_lhs;
   var_lhs: n=cvar -> ^(ClassVarAssign n)
          | n=ivar -> ^(InstVarAssign n)
@@ -436,15 +419,9 @@ parser MirahParser {
 
   tok: . (identifierChar+ oneOf("?!")? | _) {text(_real_start, _pos)};
 
-  constant: t=($CONSTANT | lastdot ($BEGIN | $END)) ~(":" ~":") {Token(t).text};
+  constant: t=$CONSTANT ~(":" ~":") {Token(t).text};
   identifier: t=( $IDENTIFIER
-                | lastdot ( $__LINE__|$__FILE__|$__ENCODING__|$BEGIN|$END|$Alias
-                          | $And|$Begin|$Break|$Case|$Class|$Def|$Defined|$Do
-                          | $Else|$Elsif|$End|$Ensure|$False|$For|$In|$Module
-                          | $Next|$Nil|$Not|$Or|$Redo|$Rescue|$Retry|$Return
-                          | $Self|$Super|$Then|$True|$Undef|$When|$Yield|$If
-                          | $Unless|$While|$Until
-                          )
+                | lastdot {e=self._lex();@reserved.contains(e.type) ? Object(e) : @error}
                 ) ~(":" ~":") {Token(t).text};
   identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
   cvar: t=$ClassVar {Token(t).text.substring(2)};
@@ -456,10 +433,22 @@ parser MirahParser {
            {"#{join(n)}#{t}"}
        | op;
 
-  op: ($UNKNOWN)=>
-      . ( "<=>" | "===" | "==" | "=~" | "!~" | "<=" | ">=" | "<<<"
-        | "<<" | ">>" | "!=" | "**" | "[]=" | "[]" | "+@" | "-@"
-        | oneOf("&|^<>+-*/%!~")
+  op: ($LT)=> $LT {"<"}
+    | ($LE)=> $LE {"<="}
+    | ($LEG)=> $LEG {"<=>"}
+    | ($GT)=> $GT {">"}
+    | ($GE)=> $GE {">="}
+    | ($LShift)=> $LShift {"<<"}
+    | ($LLShift)=> $LLShift {"<<<"}
+    | ($RShift)=> $RShift {">>"}
+    | ($Bang)=> $Bang {"!"}
+    | ($NE)=> $NE {"!="}
+    | ($NMatch)=> $NMatch {"!~"}
+    | ($Slash)=> $Slash {"/"}
+    | ($LBrack)=> . ("[]=" | "[]")
+    | ($UNKNOWN)=>
+      . ( "===" | "==" | "=~" | "**" | "+@" | "-@"
+        | oneOf("&|^+-*%~")
         );
 
   cname: c=constant -> ^(Constant c)
@@ -475,15 +464,16 @@ parser MirahParser {
             | ."<" c=cpath term  # Should this be expr_value instead of cpath?
               {c};
 
-  variable: $Nil                                   -> ^(Nil)
-          | $Self                                  -> ^(Self)
-          | $True                                  -> ^(True)
-          | $False                                 -> ^(False)
-          | v=cvar                                    -> ^(ClassVar v)
-          | v=ivar                                    -> ^(InstVar v)
-          | n=fid                                     -> ^(FCall n)
-          | c=constant                                -> ^(Constant c)
-          | n=identifier                              -> ^(Identifier n);
+  variable: ($Nil)=> $Nil                             -> ^(Nil)
+          | ($Self)=> $Self                           -> ^(Self)
+          | ($True)=> $True                           -> ^(True)
+          | ($False)=> $False                         -> ^(False)
+          | ($ClassVar)=> v=cvar                      -> ^(ClassVar v)
+          | ($InstVar)=> v=ivar                       -> ^(InstVar v)
+          | ($FID)=> n=fid                            -> ^(FCall n)
+          | ($CONSTANT)=> c=constant                  -> ^(Constant c)
+          | ($IDENTIFIER)=> n=identifier              -> ^(Identifier n)
+          | (lastdot)=> n=identifier                  -> ^(Identifier n);
 
   symbol: . ":" ~":" v=("@@" | "@" | {""}) n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
@@ -595,8 +585,6 @@ parser MirahParser {
                 | v=apply(rule) { @memo.put(position, v); v });
 
   lastdot: ?{_rpeek.indexOf(".") == 0};
-  reswords: ?{_rpeek.indexOf(".") == -1}
-            ?{@reswords.region(_pos, _string.length);@reswords.lookingAt};
 
   def self.parse_args(args:String[]) {
     argc = args.length
@@ -650,10 +638,7 @@ parser MirahParser {
     @DECIMAL = "0123456789"
     @OCTAL = "01234567"
     @BINARY = "01"
-    @RESWORDS = /(__LINE__|__FILE__|__ENCODING__|BEGIN|END|alias|and|\
-begin|break|case|class|def|defined|do|else|elsif|end|ensure|false|\
-for|in|module|next|nil|not|or|redo|rescue|retry|return|self|super|\
-then|true|undef|when|yield|if|unless|while|until)\b/
+    @reserved = EnumSet.range(Tokens.tBEGIN, Tokens.tYield)
     @heredocs = LinkedList.new
     @memo = {}
     @nil = Ast.new('Nil')
@@ -667,7 +652,6 @@ then|true|undef|when|yield|if|unless|while|until)\b/
   }
 
   def init {
-    @reswords = @RESWORDS.matcher(_string)
     @lexer = MirahLexer.new(_string, @chars, self);
   }
 
