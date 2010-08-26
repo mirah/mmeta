@@ -37,6 +37,7 @@ public parser MMetaCompiler {
       @locals = ArrayList.new
       @methods = ArrayList.new
       @rules = ArrayList.new
+      @ranges = HashMap.new
       @sname = "ERROR-sname-ERROR"
       @name = "ERROR-name-ERROR"
       @_ = "  "
@@ -144,6 +145,10 @@ public parser MMetaCompiler {
     Token name=_ {
       "#{@_}_t = _lex(Tokens.t#{name})\n"
     };
+    TokenRange first=_ last=_ {
+      "#{@_}_tok = _lex()  # #{first}..#{last}\n" \
+      "_t = #{lookup_range(first, last)}.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__\n"
+    };
     TLit name=_ {
       " # #{name}\n#{@_}    build_token(#{lookup_token(name)}, _start, _real_start)"
     };
@@ -236,7 +241,7 @@ public parser MMetaCompiler {
     };
 
     Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {
-        b = "\nclass #{@name} < #{@sname}\n  def _init;@chars = _chars;super();end\n" +
+        b = "\nclass #{@name} < #{@sname}\n  def _init;#{build_init};end\n" +
             join(xs) + "\n" + join(@methods) + "\n" +
             "  def _jump(r:string)\n"
 
@@ -273,6 +278,7 @@ public parser MMetaCompiler {
         "import java.util.ArrayList\n" +
         "import java.util.Date\n" +
         "import java.util.List\n" +
+        "import java.util.EnumSet\n" +
         (@embedded ? "" : "import jmeta.*;\n") + join(xs)
     } ;
 
@@ -342,5 +348,27 @@ public parser MMetaCompiler {
         @tokens.add(name)
       end
       return index
+    }
+
+    def lookup_range(first:Object, last:Object) {
+      key = "#{first},#{last}"
+      val = String(@ranges.get(key))
+      if val.nil?
+        val = "@_trange#{@ranges.size}"
+        @ranges.put(key, val)
+      end
+      val
+    }
+
+    def build_init {
+      code = StringBuilder.new("\n@chars = _chars\nsuper()\n")
+      @ranges.keySet.each do |key|
+        tokens = String(key).split(",")
+        first = tokens[0]
+        last = tokens[1]
+        name = @ranges.get(key)
+        code.append("#{name} = EnumSet.range(Tokens.t#{first}, Tokens.t#{last})\n")
+      end
+      code.toString
     }
 }

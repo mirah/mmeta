@@ -398,15 +398,17 @@ parser MirahParser {
                   |"*="|"&&="|"&="|"^="|">>=") opt_nl {"#{String(op).substring(0, String(op).length - 1)}"};
   assignment_op: op_assign | ."=" ~oneOf("~=>") opt_nl {"="};
 
-  lhs: t=value(primary) ."[" opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
-     | t=value(primary) dot_or_colon n=constant -> ^(ConstAssign ^(Colon2Const t n))
-     | t=value(primary) dot_or_colon n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+  lhs: t=value(primary) (($LBrack)=> $LBrack opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
+                        | dot_or_colon (($CONSTANT)=> n=constant -> ^(ConstAssign ^(Colon2Const t n))
+                                       |n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+                                       )
+                        )
      | colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | var_lhs;
-  var_lhs: n=cvar -> ^(ClassVarAssign n)
-         | n=ivar -> ^(InstVarAssign n)
-         | n=constant -> ^(ConstAssign n)
-         | n=identifier -> ^(LocalAssign n);
+  var_lhs: ($ClassVar)=> n=cvar -> ^(ClassVarAssign n)
+         | ($InstVar)=> n=ivar -> ^(InstVarAssign n)
+         | ($CONSTANT)=> n=constant -> ^(ConstAssign n)
+         | ($IDENTIFIER)=> n=identifier -> ^(LocalAssign n);
 
   assoc: a=arg_value . "=>" opt_nl b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
@@ -421,7 +423,7 @@ parser MirahParser {
 
   constant: t=$CONSTANT ~(":" ~":") {Token(t).text};
   identifier: t=( $IDENTIFIER
-                | lastdot {e=self._lex();@reserved.contains(e.type) ? Object(e) : @error}
+                | lastdot $BEGIN..$Yield
                 ) ~(":" ~":") {Token(t).text};
   identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
   cvar: t=$ClassVar {Token(t).text.substring(2)};

@@ -97,7 +97,10 @@ public parser JMetaParser {
     synPred       : ."(" p=expr .")" ."=>" e=expr4 t=synPredTail        { [:SynPred, [:Peek, p], e, t] };
     synPredTail   : ."|" (synPred | expr4)
                   | {[:Pred, "false"]};
-    token         : "$" n=name                                          { [:Token, n] };
+    token         : "$" n=name                                          { n };
+    tokens        : a=token (.".." . b=token                            { [:TokenRange, a, b]}
+                            |                                           { [:Token, a]}
+                            );
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
     expr4         : xs=expr3*                                           { [:And] + xs  } ;
@@ -110,7 +113,7 @@ public parser JMetaParser {
     expr2         : "~"! x=expr2                                        { [:Not,  x]   }
                   | "&"! x=expr1                                        { [:Peek, x]   }
                   | expr1 ;
-    expr1         : wsdot | any | error | semPred | semAction | application | token
+    expr1         : wsdot | any | error | semPred | semAction | application | tokens
                   | x=(k("null")|k("true")|k("false"))                  { [:HLit, x] }
                   | string | symbol | number
                   | "["! .x=expr ."]"                                    { [:List, x] }
