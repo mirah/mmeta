@@ -55,7 +55,7 @@ parser MirahParser {
 
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
-  start: ! prog=compstmt . end heredoc -> ^(Script prog);
+  start: ! prog=compstmt $EOF heredoc -> ^(Script prog);
   compstmt: terms? a=(s=statement terms {s})*
             b=statement?
             {addToBlock(a, b)};
@@ -103,7 +103,7 @@ parser MirahParser {
                 l=var_lhs op=op_assign r=command_call
                 b= -> ^(Call op gettable2(l) [r])
                 assign(l, b)
-              | ( l=lhs ."=" r=command_call assign(l, r)
+              | ( l=lhs $EQ r=command_call assign(l, r)
                 | t=value(primary) (($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
                                                 -> ^(OpElemAssign t op a v)
                                    | ($Colons)=> colons f=identifier op=op_assign v=command_call
@@ -137,8 +137,8 @@ parser MirahParser {
   command_call: block_command
               | command
               | $Return a=call_args -> ^(Return a+);
-              # | k(:break) a=call_args -> ^(Break a+)
-              # | k(:next) a=call_args -> ^(Next a+)
+              # | $Break a=call_args -> ^(Break a+)
+              # | $Next a=call_args -> ^(Next a+)
 
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
   block_command: h=block_call t=(dot_or_colon op=operation2 a=command_args
@@ -178,11 +178,12 @@ parser MirahParser {
           | primary2_id
           ;
   primary2_super
-         : k(:super) a=paren_args iter=brace_block? -> ^(Super a iter)
-         | k(:super) iter=brace_block -> ^(Super [] iter)
-         | k(:super) -> ^(ZSuper);
+         : $Super ( a=paren_args iter=brace_block? -> ^(Super a iter)
+                  | iter=brace_block -> ^(Super [] iter)
+                  | -> ^(ZSuper)
+                  );
   primary2_lparen
-         : . "(" opt_nl e=compstmt opt_nl . ")" {
+         : $LParen opt_nl e=compstmt opt_nl . ")" {
            unless e.nil?
              ae = Ast(e)
              ae.start_position = pos(_start)
@@ -191,55 +192,61 @@ parser MirahParser {
            e
          };
   primary2_begin
-         : k(:begin)! b=bodystmt k(:end) -> ^(Begin b);
+         : $Begin! b=bodystmt $End -> ^(Begin b);
   primary2_lbrack
          : isBEG . "[" opt_nl . "]" -> ^(ZArray)
          | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+);
   primary2_lbrace
-         : . "{" opt_nl . "}" -> ^(Hash)
-         | . "{" opt_nl a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+);
+         : $LBrace opt_nl ( ."}" -> ^(Hash)
+                          | a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+)
+                          );
   primary2_yield
-         : k(:yield) . "(" opt_nl . ")" -> ^(Yield)
-         | k(:yield) . "(" opt_nl a=call_args opt_nl . ")" -> ^(Yield a+)
-         | k(:yield) -> ^(Yield);
+         : $Yield ( $LParen opt_nl ( .")" -> ^(Yield)
+                                   | a=call_args opt_nl . ")" -> ^(Yield a+)
+                                   )
+                  | -> ^(Yield)
+                  );
   primary2_bang
-         : ."!" ."(" opt_nl .")" -> ^(Call "!" ^(Nil))
-         | ."!" ."(" opt_nl e=value(expr) opt_nl .")" -> ^(Call "!" e);
+         : $Bang $LParen opt_nl (.")" -> ^(Call "!" ^(Nil))
+                                | e=value(expr) opt_nl .")" -> ^(Call "!" e)
+                                );
   primary2_if
-         : isBEG2 k(:if)! opt_nl cond=value(expr) Then body=compstmt tail=if_tail k(:end)
+         : isBEG2 $If! opt_nl cond=value(expr) Then body=compstmt tail=if_tail $End
            -> ^(If cond body tail);
   primary2_unless
-         : isBEG2 k(:unless)! opt_nl cond=value(expr) Then body=compstmt tail=Else? k(:end)
+         : isBEG2 $Unless! opt_nl cond=value(expr) Then body=compstmt tail=Else? $End
            -> ^(If cond tail body);
   primary2_while
-         : isBEG2 k(:while)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         : isBEG2 $While! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
            -> ^(While cond body);
   primary2_until
-         : isBEG2 k(:until)! opt_nl COND cond=value(expr) Do body=compstmt k(:end) {body ||= @nil}
+         : isBEG2 $Until! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
            -> ^(Until cond body);
   primary2_for
-         : k(:for)! opt_nl var=variable k(:in) opt_nl COND list=value(expr) Do body=compstmt k(:end)
+         : $For! opt_nl var=variable $In opt_nl COND list=value(expr) Do body=compstmt $End
            -> ^(For var body list);
   primary2_class
-         : k(:class) . "<<"! BEG e=expr  # Should this just allow k(:self)?
-           term b=compstmt k(:end) {b ||= @nil}
-           -> ^(SClass e b)
-         | k(:class)! n=cpath s=superclass
-           b=compstmt  # JRuby has bodystmt, but that doesn't make much
-                       # sense for mirah. Maybe rescuing exceptions
-                       # in the static initializer?
-           k(:end) {b ||= @nil}
-           -> ^(Class n b s);
+         : $Class ( $LShift! BEG e=expr  # Should this just allow $Self?
+                    term b=compstmt $End {b ||= @nil}
+                    -> ^(SClass e b)
+                  | n=cpath s=superclass
+                    b=compstmt  # JRuby has bodystmt, but that doesn't make much
+                                # sense for mirah. Maybe rescuing exceptions
+                                # in the static initializer?
+                    $End {b ||= @nil}
+                    -> ^(Class n b s)
+                  );
   primary2_def
-         : Def k(:self)! . dot_or_colon name=fname args=f_arglist body=bodystmt k(:end)
-           -> ^(DefStatic name args body)
-         | Def! name=fname args=f_arglist body=bodystmt k(:end)
-           -> ^(Def name args body);
-  primary2_break: k(:break) -> ^(Break);
-  primary2_next: k(:next) -> ^(Next);
-  primary2_redo: k(:redo) -> ^(Redo);
-  primary2_retry: k(:retry) -> ^(Retry);
-  primary2_return: k(:return) -> ^(Return ^(Nil));
+         : $Def! ( $Self! . dot_or_colon name=fname args=f_arglist body=bodystmt $End
+                   -> ^(DefStatic name args body)
+                 | name=fname args=f_arglist body=bodystmt $End
+                   -> ^(Def name args body)
+                 );
+  primary2_break: $Break -> ^(Break);
+  primary2_next: $Next -> ^(Next);
+  primary2_redo: $Redo -> ^(Redo);
+  primary2_retry: $Retry -> ^(Retry);
+  primary2_return: $Return -> ^(Return ^(Nil));
   primary2_id: ($Colons)=> colon3 c=constant ~($EQ..$OpAssign) -> ^(Colon3 c)
              | ($Digit)=> numeric
              | ($Colon)=> symbol
@@ -253,15 +260,15 @@ parser MirahParser {
                )
              | variable;
 
-  f_arglist: ."("! opt_nl a=f_args opt_nl .")" BEG {a}
+  f_arglist: $LParen! opt_nl a=f_args opt_nl .")" BEG {a}
            | a=f_args term {a};
 
   comma: ."," opt_nl;
-  f_args: req=f_arg! opt=(."," f_optarg)? rest=(."," f_rest_arg)? req2=(."," f_arg)? block=(."," f_block_arg)?
+  f_args: req=f_arg! opt=(comma f_optarg)? rest=(comma f_rest_arg)? req2=(comma f_arg)? block=(comma f_block_arg)?
             -> ^(Arguments req opt rest req2 block)
-        | opt=f_optarg! rest=(."," f_rest_arg)? req=(."," f_arg)? block=(."," f_block_arg)?
+        | opt=f_optarg! rest=(comma f_rest_arg)? req=(comma f_arg)? block=(comma f_block_arg)?
             -> ^(Arguments nil opt rest req block)
-        | rest=f_rest_arg! req=(."," f_arg)? block=(."," f_block_arg)?
+        | rest=f_rest_arg! req=(comma f_arg)? block=(comma f_block_arg)?
             -> ^(Arguments nil nil rest req block)
         | block=f_block_arg -> ^(Arguments nil nil nil nil block)
         | -> ^(Arguments nil nil nil nil nil);
@@ -275,24 +282,24 @@ parser MirahParser {
             | n=identifier { [n, nil] };
 
   f_arg_item: ~f_opt n=f_norm_arg -> ^(RequiredArgument n+);
-            # | ."(" f_margs .")"
+            # | $LParen f_margs .")"
 
   f_arg: rlistOf(:f_arg_item);
 
-  f_opt: n=f_norm_arg ."="! v=arg_value l={ n + [v] }-> ^(OptArg l+);
+  f_opt: n=f_norm_arg $EQ! v=arg_value l={ n + [v] }-> ^(OptArg l+);
   f_optarg: rlistOf(:f_opt);
 
   f_rest_arg: ."*" n=f_norm_arg -> ^(RestArg n+)
             | ."*" -> ^(UnnamedRestArg);
 
-  f_block_arg: ."&" n=f_norm_arg ."=" !"nil" k(:nil) -> ^(OptBlockArg n+)
+  f_block_arg: ."&" n=f_norm_arg $EQ !"nil" $Nil -> ^(OptBlockArg n+)
              | ."&"! n=f_norm_arg -> ^(BlockArg n+);
 
   block_arg: ."&" v=arg_value -> ^(BlockPass v);
 
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
-  brace_block: ."{" opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
+  brace_block: $LBrace opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
              | do_block("");
 
   # The argument is a hack to skip memoizing this rule.
@@ -307,7 +314,7 @@ parser MirahParser {
                 | ($LParen)=> paren_args
                 | ~(call_args | $EQ..$OpAssign) { nil };
 
-  maybe_rescue: a=arg k(:rescue) b=value(arg)
+  maybe_rescue: a=arg $Rescue b=value(arg)
                 -> ^(Rescue a [^(RescueClause [] nil b)] nil)
               | arg;
 
@@ -316,18 +323,18 @@ parser MirahParser {
   arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
                     -> ^(If ["PH"] t e))* {tangle(h, tail)};
   arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
-          l=var_lhs ."&&=" opt_nl r=arg
+          l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) b null)
         | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
-          l=var_lhs ."||=" opt_nl r=arg
+          l=var_lhs $OrEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) null b)
         | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
           l=var_lhs op=assignment_op r=arg
           b= -> ^(Call op gettable2(l) [r])
           assign(l, b)
-        | ( l=lhs ."=" r=maybe_rescue assign(l, r)
+        | ( l=lhs $EQ r=maybe_rescue assign(l, r)
           | t=value(primary) ($LBrack opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
                                -> ^(OpElemAssign t op a v)
                              |colons constant assignment_op arg
@@ -407,7 +414,7 @@ parser MirahParser {
              ( ?{b} l={l+[b]} )?
              { l }
            | b=block_arg { [b] };
-  command_args scope(@cond): ~(."(") COND call_args;
+  command_args scope(@cond): ~$LParen COND call_args;
 
   op_assign: t=$AndEq..$OpAssign {text=Token(t).text;text.substring(0, text.length - 1)};
   assignment_op: op_assign | $EQ {"="};
@@ -434,20 +441,19 @@ parser MirahParser {
 
   numeric: floatLiteral | fixnum;
 
-  tok: . (identifierChar+ oneOf("?!")? | _) {text(_real_start, _pos)};
-
   constant: t=$CONSTANT ~(":" ~":") {Token(t).text};
   identifier: t=( $IDENTIFIER
                 | lastdot $BEGIN..$Yield
                 ) ~(":" ~":") {Token(t).text};
-  identifier2: . h=identifierStart t=identifierChar* l={[h]+t} {join(l)};
+  identifier2: t=($IDENTIFIER|$CONSTANT|$BEGIN..$Yield) { Token(t).text };
   cvar: t=$ClassVar {Token(t).text.substring(2)};
   ivar: t=$InstVar {Token(t).text.substring(1)};
   fid: t=$FID {Token(t).text};
-  fname: . n=identifierChar+ t=( b=oneOf("!?") ~"=" {b}
-                               | "=" ~(oneOf("~>=")|"\n>") {"="}
-                               | {""})
-           {"#{join(n)}#{t}"}
+  fname: fid
+       | n=identifier2 t=( &"=" $EQ {"="}
+                         | {""}
+                         )
+         {"#{n}#{t}"}
        | op;
 
   op: ($LT)=> $LT {"<"}
@@ -478,7 +484,7 @@ parser MirahParser {
           names={a+[b]}-> ^(Colon2 names+));
 
   superclass: term {nil}
-            | ."<" c=cpath term  # Should this be expr_value instead of cpath?
+            | $LT c=cpath term  # Should this be expr_value instead of cpath?
               {c};
 
   variable: ($Nil)=> $Nil                             -> ^(Nil)
@@ -504,16 +510,16 @@ parser MirahParser {
          | . "<<" x=heredoc_id n= -> ^(Heredoc x) { @heredocs.addLast(HeredocContext.new(n)); n }
          ;
 
-  regexp: isBEG2 ."/" c=(regexp_contents | str_ev)* "/" options=letter*
+  regexp: isBEG2 $Slash c=(regexp_contents | str_ev)* "/" options=letter*
           -> ^(Regex c join(options));
 
-  str_ev: "\#@@"! n=identifierChar+ -> ^(EvString ^(ClassVar join(n)))
-        | "\#@"! n=identifierChar+ -> ^(EvString ^(InstVar join(n)))
+  str_ev: "\#@@"! n=identifier2 -> ^(EvString ^(ClassVar n))
+        | "\#@"! n=identifier2 -> ^(EvString ^(InstVar n))
         | "\#{"! c=compstmt "}" -> ^(EvString c);
 
-  heredoc_id: "-"? ( "\""! identifierChar+ "\""
-                   | "'"! identifierChar+ "'"
-                   | identifierChar+
+  heredoc_id: "-"? ( "\""! identifier2 "\""
+                   | "'"! identifier2 "'"
+                   | identifier2
                    ) {text(_start, _pos)};
 
   squote_contents: "\\\\" { "\\" } | "\\'" { "'" } | ~"'" _;
@@ -564,18 +570,17 @@ parser MirahParser {
   re_escape: unicode_escape
            | "\\"! c=codepoint {"\\#{c}"};
 
-  Then: . term? k(:then) | . term;
-  Ensure: k(:ensure)! compstmt;
-  Else: k(:else)! compstmt;
-  Do: (k(:do) | . term) UNCOND;
-  Def: k(:def) ~oneOf("?!");
+  Then: . term? $Then | . term;
+  Ensure: $Ensure! compstmt;
+  Else: $Else! compstmt;
+  Do: ($Do | . term) UNCOND;
 
   if_tail: Else
-         | k("elsif")! opt_nl cond=value(expr) Then body=compstmt tail=if_tail
+         | $Elsif! opt_nl cond=value(expr) Then body=compstmt tail=if_tail
            -> ^(If cond body tail)
          | {nil};
 
-  Rescue: (k("rescue")! c=listOf(:constant) (. "=>" opt_nl . n=identifier)?
+  Rescue: ($Rescue! c=listOf(:constant) (. "=>" opt_nl . n=identifier)?
            Then b=compstmt -> ^(RescueClause c n b))+;
 
   fixnum: . n=( "0"! ( oneOf("xX") d=digits(@HEX)+ { parseInt(join(d), 16) }
@@ -714,28 +719,6 @@ parser MirahParser {
     end
   }
 
-  def identifierStart {
-    start = _pos
-    c = _codepoint
-    if c == 95 || Character.isLetter(c)
-      Object(String.new(Character.toChars(c)))
-    else
-      self._pos = start
-      @error
-    end
-  }
-
-  def upperCase {
-    start = _pos
-    c = _codepoint
-    if Character.isUpperCase(c)
-      Object(String.new(Character.toChars(c)))
-    else
-      self._pos = start
-      @error
-    end
-  }
-
   def heredoc {
     # Note: This won't parse if we backtrack over the newline and not
     # the heredoc identifier. However the nl rule should be memoized
@@ -775,23 +758,6 @@ parser MirahParser {
       end
     end
     "\n"
-  }
-
-  # Give a better error message than the default
-  # k keyword=_   : . str(keyword) ~identifierChar {keyword};
-  def k {
-    keyword = String(_any)
-    start = _pos
-    ws
-    t = _str(keyword)
-    if t != @error
-      t = @error unless identifierChar == @error
-    end
-    if t == @error
-      @error.last = keyword
-      self._pos = start
-    end
-    t
   }
 
   def parseInt(string:string, radix:int) {
