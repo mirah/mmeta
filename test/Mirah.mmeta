@@ -53,6 +53,7 @@ parser MirahParser {
   listOf e=_: rlistOf(e)
               | empty                                               { ArrayList.new } ;
 
+  @Memo
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
   start: ! prog=compstmt $EOF heredoc -> ^(Script prog);
@@ -82,8 +83,10 @@ parser MirahParser {
          | $Semi
          )+;
 
+  @Memo
   nl: $NL heredoc;
 
+  @Memo
   statement: f=statement2 b= ->^(PH)
              t=( ($If)=> $If c=value(expr) -> ^(If c b nil)
                | ($Unless)=> $Unless c=value(expr) -> ^(If c nil b)
@@ -127,6 +130,7 @@ parser MirahParser {
                             | ($Or)=> $Or opt_nl b=expr -> ^(Or a b))* {tangle(h, tail)};
 
   # Node:command - fcall/call/yield/super [!null]
+  @Memo
   command: ($Super)=> $Super a=command_args -> ^(Super a)
          | ($Yield)=> $Yield a=command_args -> ^(Yield a)
          | (op=operation a=command_args b=cmd_brace_block?-> ^(FCall op a b)
@@ -143,7 +147,7 @@ parser MirahParser {
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
   block_command: h=block_call t=(dot_or_colon op=operation2 a=command_args
                                  -> ^(Call op ["PH"] a))* {tangle(h, t)};
-
+  @Memo
   primary scope(@BEG, @cond)
          : h=value(primary2) t=->^(PH) tail=( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
                                             | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
@@ -173,7 +177,7 @@ parser MirahParser {
           | ($Redo)=> primary2_redo
           | ($Retry)=> primary2_retry
           | ($Return)=> primary2_return
-          | ($Quote|$Question|$LShift)=> memo(:string)
+          | ($Quote|$Question|$LShift)=> string
           | ($Slash)=> regexp
           | primary2_id
           ;
@@ -263,6 +267,7 @@ parser MirahParser {
   f_arglist: $LParen! opt_nl a=f_args opt_nl .")" BEG {a}
            | a=f_args term {a};
 
+  @Memo
   comma: ."," opt_nl;
   f_args: req=f_arg! opt=(comma f_optarg)? rest=(comma f_rest_arg)? req2=(comma f_arg)? block=(comma f_block_arg)?
             -> ^(Arguments req opt rest req2 block)
@@ -277,6 +282,7 @@ parser MirahParser {
            | &ivar !"formal argument not an instance variable" ?{false}
            | &cvar !"formal argument not a class variable" ?{false};
 
+  @Memo
   f_norm_arg: f_bad_arg
             | l=label BEG t=value(primary) n={List(l).get(1)} { [n, t] }
             | n=identifier { [n, nil] };
@@ -300,14 +306,13 @@ parser MirahParser {
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
   brace_block: $LBrace opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
-             | do_block("");
+             | do_block;
 
-  # The argument is a hack to skip memoizing this rule.
-  do_block _ : ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
+  do_block: ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
 
   # Do we need bv_decls?
   block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
-  block_call: c=command b=do_block("") h={n=Ast(Ast(c).clone); n.add(b);n} t=(dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op ["PH"] a))* {tangle(h, t)};
+  block_call: c=command b=do_block h={n=Ast(Ast(c).clone); n.add(b);n} t=(dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op ["PH"] a))* {tangle(h, t)};
 
   paren_args: $LParen! opt_nl c=call_args? opt_nl .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: ($EOF)=> {nil}
@@ -320,6 +325,7 @@ parser MirahParser {
 
   assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
 
+  @Memo
   arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
                     -> ^(If ["PH"] t e))* {tangle(h, tail)};
   arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
@@ -368,6 +374,7 @@ parser MirahParser {
        | arg11;
   arg11: a=arg12 ."**" opt_nl b=arg11 -> ^(Call "**" a [b])
        | arg12;
+  @Memo
   arg12: . op=oneOf("!~") opt_nl v=arg12 -> ^(Call op v)
        | uplus v=arg12 -> ^(Call "+@" v)
        | value(primary);
@@ -387,12 +394,10 @@ parser MirahParser {
   # This marks the beginning of an expression. It must be used inside
   # a rule with scope(@BEG).
   BEG: {@BEG = _pos;nil};
-  isBEG: isBEG_("");  # Hack to skip memoizing this rule
-  isBEG_ _: isBEG2_("") | oneOf(" \t\f\r\v");
-  isBEG2: isBEG2_("");  # Hack to skip memoizing this rule
-  isBEG2_ _: ?{_pos == @BEG}
-           | ?{Integer.valueOf(0).equals(col())}
-           | ?{@begchars.indexOf(_rpeek) > 0};
+  isBEG: isBEG2 | oneOf(" \t\f\r\v");
+  isBEG2: ?{_pos == @BEG}
+        | ?{Integer.valueOf(0).equals(col())}
+        | ?{@begchars.indexOf(_rpeek) > 0};
   COND: {@cond = true;nil};
   UNCOND: {@cond = false;nil};
 
@@ -419,6 +424,7 @@ parser MirahParser {
   op_assign: t=$AndEq..$OpAssign {text=Token(t).text;text.substring(0, text.length - 1)};
   assignment_op: op_assign | $EQ {"="};
 
+  @Memo
   lhs: ($Colons $CONSTANT)=> colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $EQ)=> var_lhs
      | t=value(primary) (($LBrack)=> $LBrack opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
@@ -474,6 +480,7 @@ parser MirahParser {
         | oneOf("&|^+-*%~")
         );
 
+  @Memo
   cname: c=constant -> ^(Constant c)
        | &identifier !"class/module name must be CONSTANT" ?{false};
 
@@ -500,6 +507,7 @@ parser MirahParser {
 
   symbol: . ":" ~":" v=("@@" | "@" | {""}) n=identifierChar+ -> ^(Symbol join(concat([v], n)));
 
+  @Memo
   string: character
         | strings=string1+ {stringConcat(strings)};
 
@@ -600,12 +608,6 @@ parser MirahParser {
                      { Double.new(join(s)) }
                     ) -> ^(Float f);
 
-  # Left recursion clears memoization of some values, but heredocs
-  # can only be processed once. This rule forces memoization.
-  memo rule=_ : position = {Integer.valueOf(_pos)}
-                ( {@memo.get(position) || @error}
-                | v=apply(rule) { @memo.put(position, v); v });
-
   lastdot: ?{_rpeek.indexOf(".") == 0};
 
   def self.parse_args(args:String[]) {
@@ -662,7 +664,6 @@ parser MirahParser {
     @BINARY = "01"
     @reserved = EnumSet.range(Tokens.tBEGIN, Tokens.tYield)
     @heredocs = LinkedList.new
-    @memo = {}
     @nil = Ast.new('Nil')
     @nil.start_position = @nil.end_position = Position.new(0, 0, 0)
     @lhs_map = {

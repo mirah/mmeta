@@ -120,7 +120,8 @@ public parser JMetaParser {
                   | synPred
                   | "("! .x=expr .")"                                    { x } ;
 
-    rule          : &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
+    rule          : ."@Memo" &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:MemoRule, n, [:Or, x] + xs ] }
+                  | &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
     rulePart rn=_ : .n=name ?{ return n.equals(rn); } !
                     ( s=(.k("scope")"(" l=listOf(:varname, ",") .")") c=ruleStuff { [:Scope, l, c] }
                     | ruleStuff

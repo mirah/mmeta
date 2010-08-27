@@ -42,6 +42,8 @@ public parser MMetaCompiler {
       @name = "ERROR-name-ERROR"
       @_ = "  "
       @__genc = -1
+      @left_recursion = Boolean.getBoolean("mmeta.left_recursion")
+      @auto_memo = Boolean.getBoolean("mmeta.auto_memo")
     }
     def reset {
         @locals = ArrayList.new
@@ -134,11 +136,11 @@ public parser MMetaCompiler {
       "unless _t == BaseParser.__ERROR__\n" \
       "#{@_}_t=nil\n" \
       "#{@_}#{t}\n" \
-      "#{@_}nil" \
+      "#{@_}nil\n" \
       "#{@_}else\n" \
       "#{@_}_t=nil\n" \
       "#{@_}#{e}\n" \
-      "#{@_}nil" \
+      "#{@_}nil\n" \
       "#{@_}end\n"
     };
 
@@ -213,19 +215,12 @@ public parser MMetaCompiler {
         "_t=_listBegin(); if (_t!=BaseParser.__ERROR__)\n#{@_}  #{x}\n#{@_}_listEnd(); end;"
     };
 
+    MemoRule n=_ b=trans {
+      rule_body(n, b, true)
+    };
+
     Rule n=_ b=trans {
-      @rules.add(n)
-      "
-  def #{n}
-    _t=Object(nil); _start=_pos; _real_start=-1;
-    _enter('#{n}')
-    _t=_retrieve(\"#{@name}.#{n}\"); return _exit(_t) if (_t!=BaseParser.__NOT_MEMOIZED__)
-    #{localsAsInit}    begin
-    #{b}
-    _t=_exit(_memoize(\"#{@name}.#{n}\", _start, _t))
-    end while (_t==BaseParser.__GROW__); BaseParser.__ERROR__.last=\"#{n}\" if (_t==BaseParser.__ERROR__); return _t;
-  end
-"
+      rule_body(n, b, false)
     };
 
     Scope names=_ indent body=trans outdent {
@@ -371,5 +366,38 @@ public parser MMetaCompiler {
         code.append("#{name} = EnumSet.range(Tokens.t#{first}, Tokens.t#{last})\n")
       end
       code.toString
+    }
+
+    def rule_body(n:Object, b:Object, force_memo:boolean) {
+      @rules.add(n)
+      if @left_recursion
+        rfunc = "_retrieve"
+        loop_start = "    begin"
+        loop_end = "end while (_t==BaseParser.__GROW__); "
+      else
+        rfunc = "_sretrieve"
+        loop_start = ""
+        loop_end = ""
+      end
+
+      if force_memo || @auto_memo
+        find = "_t=#{rfunc}(\"#{@name}.#{n}\"); return _exit(_t) if (_t!=BaseParser.__NOT_MEMOIZED__)"
+        save = "_memoize(\"#{@name}.#{n}\", _start, _t)"
+      else
+        find = ""
+        save = "_t"
+      end
+      "
+        def #{n}
+          _t = Object(nil); _start = _pos; _real_start = -1
+          _enter('#{n}')
+          #{find}
+          #{localsAsInit}#{loop_start}
+          #{b}
+          _t=_exit(#{save})
+          #{loop_end}BaseParser.__ERROR__.last=\"#{n}\" if (_t==BaseParser.__ERROR__)
+          return _t
+        end
+      "
     }
 }

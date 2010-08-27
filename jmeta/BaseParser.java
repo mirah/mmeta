@@ -3,6 +3,14 @@ package jmeta;
 
 import java.util.*;
 
+class MemoStat {
+  public String name;
+  public long stores;
+  public long hits;
+  public long misses;
+  public boolean recursion;
+}
+
 class State {
     State prev = null;
     int pos; Object[] list; SparseArrayList<HashMap<String, Memoize>> positions;
@@ -141,71 +149,97 @@ public class BaseParser {
             map = new HashMap<String, Memoize>();
             _positions.set(p, map);
         }
-
+        MemoStat stats = _stats.get(s);
+        if (stats == null) {
+          stats = new MemoStat();
+          stats.name = s;
+          _stats.put(s, stats);
+        }
+        stats.stores += 1;
         Memoize entry = map.get(s);
         if (entry == null) {
-            // sometimes we don't have a entry, incase args > 0
-            return trace("unmemoize:", s, o);
-        } else {
-            if (entry.seed != -1) {
-                // if we are done growing, stop it, and remove this left recursion from stack
-                if (o == ERROR || _pos <= entry.pos) {
-                    _pos = entry.pos;
-                    entry.seed = -1;
-                    _lefts.pop();
-                    return trace("< END:", s, _pos, entry.val);
-                }
-
-                // we will try to grow, reset all entries for this position, and record current result
-                for (String k : _lefts.pop()) map.remove(k);
-                // setup another left recursion stack
-                _lefts.push(new HashSet<String>());
-                // update the growing entry, and reset pos to its seed
-                entry.val = o;
-                entry.pos = _pos;
-                _pos = entry.seed;
-                return trace("<GROW:", s, _pos, o, GROW);
+            if (args.isEmpty()) {
+                entry = new Memoize(o, p);
+                map.put(s, entry);
+            } else {
+                // sometimes we don't have a entry, incase args > 0
+                return trace("unmemoize:", s, o);
+            }
+        }
+        if (entry.seed != -1) {
+            // if we are done growing, stop it, and remove this left recursion from stack
+            if (o == ERROR || _pos <= entry.pos) {
+                _pos = entry.pos;
+                entry.seed = -1;
+                _lefts.pop();
+                return trace("< END:", s, _pos, entry.val);
             }
 
-            // if we are in a left recursive situation, mark each evaluated rule
-            if (! _lefts.isEmpty()) _lefts.peek().add(s);
-
-            entry.pos = _pos;
+            // we will try to grow, reset all entries for this position, and record current result
+            for (String k : _lefts.pop()) map.remove(k);
+            // setup another left recursion stack
+            _lefts.push(new HashSet<String>());
+            // update the growing entry, and reset pos to its seed
             entry.val = o;
-            if (o == ERROR) _pos = p;
-            if (o == ERROR) return trace("< err:", s, o);
-            return trace("<  ok:", s, o);
+            entry.pos = _pos;
+            _pos = entry.seed;
+            return trace("<GROW:", s, _pos, o, GROW);
         }
+
+        // if we are in a left recursive situation, mark each evaluated rule
+        if (! _lefts.isEmpty()) _lefts.peek().add(s);
+
+        entry.pos = _pos;
+        entry.val = o;
+        if (o == ERROR) _pos = p;
+        if (o == ERROR) return trace("< err:", s, o);
+        return trace("<  ok:", s, o);
     }
 
-    public Object _retrieve(String s) {
-        // we cannot memoize in face of arguments
-        if (! args.isEmpty()) return trace(">ntry:", s, NOT_MEMOIZED);
+    private HashMap<String, MemoStat> _stats = new HashMap<String, MemoStat>();
+    public Object _sretrieve(String s) {
+      // we cannot memoize in face of arguments
+      if (! args.isEmpty()) return trace(">ntry:", s, NOT_MEMOIZED);
 
-        int p = _pos;
-        HashMap<String, Memoize> map = _positions.get(p);
+      int p = _pos;
+      HashMap<String, Memoize> map = _positions.get(p);
+      MemoStat stats =  _stats.get(s);
+      if (stats == null) {
+        stats = new MemoStat();
+        _stats.put(s, stats);
+        stats.name = s;
+      }
+      Memoize entry = map == null ? null : map.get(s);
+      if (entry == null) {
+          stats.misses += 1;
+      } else {
+          stats.hits += 1;
+          _pos = entry.pos;
+          if (entry.val == LEFT_REC) {
+              // notice we are diving into a left recursion, grow a seed from here, and start a left recursion stack
+              entry.val = ERROR;
+              entry.seed = entry.pos;
+              _lefts.push(new HashSet<String>());
+              stats.recursion = true;
+              return trace(">LEFT:", s, _pos, ERROR);
+          }
+          if (entry.val == ERROR) return trace("> err:", s, entry.val);
+          return trace(">  ok:", s, entry.val);
+      }
+      return trace("> try:", s, NOT_MEMOIZED);
+    }
+    public Object _retrieve(String s) {
+      Object o = _sretrieve(s);
+      if (o == NOT_MEMOIZED && args.isEmpty()) {
+        HashMap<String, Memoize> map = _positions.get(_pos);
         if (map == null) {
             map = new HashMap<String, Memoize>();
-            _positions.set(p, map);
+            _positions.set(_pos, map);
         }
-
-        Memoize entry = map.get(s);
-        if (entry == null) {
-            // mark that we are starting with this rule
-            map.put(s, new Memoize(LEFT_REC, _pos));
-        } else {
-            _pos = entry.pos;
-            if (entry.val == LEFT_REC) {
-                // notice we are diving into a left recursion, grow a seed from here, and start a left recursion stack
-                entry.val = ERROR;
-                entry.seed = entry.pos;
-                _lefts.push(new HashSet<String>());
-                return trace(">LEFT:", s, _pos, ERROR);
-            }
-            if (entry.val == ERROR) return trace("> err:", s, entry.val);
-            return trace(">  ok:", s, entry.val);
-        }
-        return trace("> try:", s, NOT_MEMOIZED);
+        // mark that we are starting with this rule
+        map.put(s, new Memoize(LEFT_REC, _pos));
+      }
+      return o;
     }
 
     public void _init() {
@@ -261,6 +295,14 @@ public class BaseParser {
 
         if (debug_parse_tree) {
           System.out.println("}");
+          System.err.println("Memo Stats:");
+          for (MemoStat stat : _stats.values()) {
+            if (stat.hits == 0) continue;
+            System.err.println(stat.name + ": " + stat.stores + " stores, " + 
+                               stat.hits + " hits, " +
+                               (((double)stat.hits)/(stat.hits+stat.misses))
+                               );
+          }
         }
 
         if (_t==ERROR) throw new SyntaxError("", _pos, _string, _list);
