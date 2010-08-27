@@ -315,29 +315,34 @@ parser MirahParser {
 
   arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
                     -> ^(If ["PH"] t e))* {tangle(h, tail)};
-  arg0
-     : l=lhs ."=" r=maybe_rescue assign(l, r)
-     | l=var_lhs ."&&=" opt_nl r=arg
-       b=assign(l, r)
-       -> ^(If gettable2(l) b null)
-     | l=var_lhs ."||=" opt_nl r=arg
-       b=assign(l, r)
-       -> ^(If gettable2(l) null b)
-     | l=var_lhs op=assignment_op r=arg
-       b= -> ^(Call op gettable2(l) [r])
-       assign(l, b)
-     | t=value(primary) ."[" opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
-       -> ^(OpElemAssign t op a v)
-     | value(primary) colons constant assignment_op arg
-       !"constant re-assignment prohibited" ?{false}
-     | t=value(primary) dot_or_colon f=(constant | identifier) op=assignment_op v=arg
-       -> ^(OpAssign t f op v)
-     | colon3 constant assignment_op arg
-       !"constant re-assignment prohibited" ?{false}
-     # ranges?
-     | arg2;
+  arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
+          l=var_lhs ."&&=" opt_nl r=arg
+          b=assign(l, r)
+          -> ^(If gettable2(l) b null)
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
+          l=var_lhs ."||=" opt_nl r=arg
+          b=assign(l, r)
+          -> ^(If gettable2(l) null b)
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
+          l=var_lhs op=assignment_op r=arg
+          b= -> ^(Call op gettable2(l) [r])
+          assign(l, b)
+        | ( l=lhs ."=" r=maybe_rescue assign(l, r)
+          | t=value(primary) ($LBrack opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
+                               -> ^(OpElemAssign t op a v)
+                             |colons constant assignment_op arg
+                               !"constant re-assignment prohibited" ?{false}
+                             |dot_or_colon f=(constant | identifier) op=assignment_op v=arg
+                               -> ^(OpAssign t f op v)
+                             )
+          | colon3 constant assignment_op arg
+             !"constant re-assignment prohibited" ?{false}
+          | arg2
+          )
+        );
 
-  arg2: a=arg3 t=(."||" opt_nl b=arg2 -> ^(Or ["PH"] b))* {tangle(a, t)};
+  arg2: &(. oneOf("+-!~")|primary)
+        a=arg3 t=(."||" opt_nl b=arg2 -> ^(Or ["PH"] b))* {tangle(a, t)};
   arg3: a=arg4 t=(."&&" opt_nl b=arg3 -> ^(And ["PH"] b))* {tangle(a, t)};
   arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
                    -> ^(Call op ["PH"] [b])
@@ -349,9 +354,10 @@ parser MirahParser {
   arg8: a=arg9 t=(."+" opt_nl b=arg8 -> ^(Call "+" ["PH"] [b])
                  |."-" opt_nl b=arg8 -> ^(Call "-" ["PH"] [b]))* {tangle(a, t)};
   arg9: a=arg10 t=(. op=oneOf("*%/") opt_nl b=arg9 -> ^(Call op ["PH"] [b]))* {tangle(a, t)};
-  arg10: uminus v=arg11 ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
-       | uminus v=arg11 ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
-       | uminus v=arg11 -> ^(Call "-@" v)
+  arg10: uminus v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
+                        | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
+                        | -> ^(Call "-@" v)
+                        )
        | arg11;
   arg11: a=arg12 ."**" opt_nl b=arg11 -> ^(Call "**" a [b])
        | arg12;
@@ -904,7 +910,9 @@ parser MirahParser {
     result
   }
   def lex {
-    _enter("lex")
-    _exit(@lexer.lex(_pos))
+    #_enter("lex")
+    #_exit(
+    @lexer.lex(_pos)
+    #)
   }
 }
