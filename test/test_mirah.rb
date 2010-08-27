@@ -478,5 +478,9 @@ EOF
     assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, [Unquote, [Identifier, a]], null]], null, null, null, null], [Fixnum, 1]]]",
                  "def foo(`a`); 1; end")
     assert_parse("[Script, [Call, [Unquote, [Identifier, foo]], [Identifier, a], null, null]]", 'a.`foo`')
+    assert_parse("[Script, [UnquoteAssign, [Identifier, a], [Identifier, b]]]", "`a` = b")
+    assert_parse("[Script, [UnquoteAssign, [Identifier, a], [Call, +, [Unquote, [Identifier, a]], [[Fixnum, 1]]]]]",
+                 "`a` += 1")
+    
    end
 end

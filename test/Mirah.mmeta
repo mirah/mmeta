@@ -94,15 +94,15 @@ parser MirahParser {
                | ($Until)=> $Until c=value(expr) -> ^(UntilMod c b)
                | ($Rescue)=> $Rescue r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
                )* {tangle(f, t)};
-  statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
+  statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $AndEq)=>
                 l=var_lhs $AndEq opt_nl r=command_call
                 b=assign(l, r)
                 -> ^(If gettable2(l) b null)
-              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
+              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OrEq)=>
                 l=var_lhs $OrEq opt_nl r=command_call
                 b=assign(l, r)
                 -> ^(If gettable2(l) null b)
-              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
+              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OpAssign)=>
                 l=var_lhs op=op_assign r=command_call
                 b= -> ^(Call op gettable2(l) [r])
                 assign(l, b)
@@ -120,6 +120,7 @@ parser MirahParser {
 
   value v=_ : {checkExpression(v)};
 
+  @Memo
   expr: h=( ($Not)=> $Not opt_nl e=expr -> ^(Not e)
           | ($Bang)=> ($Bang e=command_call -> ^(Not e) | arg12)
           | ( c=variable ."?" opt_nl t=arg opt_nl . ":" opt_nl e=arg -> ^(If c t e)
@@ -330,15 +331,15 @@ parser MirahParser {
   @Memo
   arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
                     -> ^(If ["PH"] t e))* {tangle(h, tail)};
-  arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
+  arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $AndEq)=>
           l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) b null)
-        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OrEq)=>
           l=var_lhs $OrEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) null b)
-        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OpAssign)=>
           l=var_lhs op=assignment_op r=arg
           b= -> ^(Call op gettable2(l) [r])
           assign(l, b)
@@ -440,16 +441,19 @@ parser MirahParser {
   @Memo
   lhs: ($Colons $CONSTANT)=> colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $EQ)=> var_lhs
-     | t=value(primary) (($LBrack)=> $LBrack opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
-                        | dot_or_colon (($CONSTANT)=> n=constant -> ^(ConstAssign ^(Colon2Const t n))
-                                       |n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
-                                       )
-                        );
+     | ($Backtick)=> (var_lhs | lhs2)
+     | lhs2;
+  lhs2: t=value(primary) (($LBrack)=> $LBrack opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
+                         | dot_or_colon (($CONSTANT)=> n=constant -> ^(ConstAssign ^(Colon2Const t n))
+                                        |n=identifier l={ArrayList.new} -> ^(AttrAssign "#{n}=" t l)
+                                        )
+                         );
 
   var_lhs: ($ClassVar)=> n=cvar -> ^(ClassVarAssign n)
          | ($InstVar)=> n=ivar -> ^(InstVarAssign n)
          | ($CONSTANT)=> n=constant -> ^(ConstAssign n)
-         | ($IDENTIFIER)=> n=identifier -> ^(LocalAssign n);
+         | ($IDENTIFIER)=> n=identifier -> ^(LocalAssign n)
+         | ($Backtick)=> u=unquote n={List(u).get(1)} -> ^(UnquoteAssign n);
 
   assoc: a=arg_value . "=>" opt_nl b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
@@ -688,6 +692,7 @@ parser MirahParser {
       "LocalAssign" => "Local",
       "InstVarAssign" => "InstVar",
       "ClassVarAssign" => "ClassVar",
+      "UnquoteAssign" => "Unquote",
     }
   }
 
