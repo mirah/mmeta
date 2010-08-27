@@ -147,7 +147,8 @@ public parser MMetaCompiler {
     };
     TokenRange first=_ last=_ {
       "#{@_}_tok = _lex()  # #{first}..#{last}\n" \
-      "_t = #{lookup_range(first, last)}.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__\n"
+      "_t = #{lookup_range(first, last)}.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__\n" \
+      "self._pos=_tok.pos if _t == BaseParser.__ERROR__"
     };
     TLit name=_ {
       " # #{name}\n#{@_}    build_token(#{lookup_token(name)}, _start, _real_start)"

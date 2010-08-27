@@ -286,7 +286,12 @@ class MirahLexer {
         type = Tokens.tNL;
         break;
       case '/':
-        type = Tokens.tSlash;
+        if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          type = Tokens.tSlash;
+        }
         break;
       case '\'':
       case '"':
@@ -347,8 +352,16 @@ class MirahLexer {
               break;
             case '<':
               if (i + 1 < end && chars[i + 1] == '<') {
+                if (i + 2 < end && chars[i + 2] == '=') {
+                  i += 3;
+                  type = Tokens.tOpAssign;
+                } else {
+                  i += 2;
+                  type = Tokens.tLLShift;
+                }
+              } else if (i + 1 < end && chars[i + 1] == '=') {
                 i += 2;
-                type = Tokens.tLLShift;
+                type = Tokens.tOpAssign;
               } else {
                 i += 1;
                 type = Tokens.tLShift;
@@ -368,8 +381,13 @@ class MirahLexer {
             i += 1;
             type = Tokens.tGE;
           } else if (c == '>') {
-            i += 1;
-            type = Tokens.tRShift;
+            if (i + 1 < end && chars[i + 1] == '=') {
+              i += 2;
+              type = Tokens.tOpAssign;
+            } else {
+              i += 1;
+              type = Tokens.tRShift;
+            }
           } else {
             type = Tokens.tGT;
           }
@@ -379,6 +397,86 @@ class MirahLexer {
         break;
       case '?':
         type = Tokens.tQuestion;
+        break;
+      case '=':
+        if (i == end || (chars[i] != '=' && chars[i] != '~')) {
+          type = Tokens.tEQ;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '&':
+        if (i + 1 < end && chars[i] == '&' && chars[i + 1] == '=') {
+          i += 2;
+          type = Tokens.tAndEq;
+        } else if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '|':
+        if (i + 1 < end && chars[i] == '|' && chars[i + 1] == '=') {
+          i += 2;
+          type = Tokens.tOrEq;
+        } else if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '*':
+        if (i + 1 < end && chars[i] == '*' && chars[i + 1] == '=') {
+          i += 2;
+          type = Tokens.tOpAssign;
+        } else if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '+':
+        if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '-':
+        if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '%':
+        if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
+        break;
+      case '^':
+        if (i < end && chars[i] == '=') {
+          i += 1;
+          type = Tokens.tOpAssign;
+        } else {
+          // TODO
+          type = Tokens.tUNKNOWN;
+        }
         break;
       case '0': case '1': case '2': case '3': case '4':
       case '5': case '6': case '7': case '8': case '9':
