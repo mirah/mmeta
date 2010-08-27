@@ -81,6 +81,7 @@ public enum Tokens {
   tOpAssign,
   tQuestion,
   tDigit,
+  tBacktick,
   tUNKNOWN,
   tEOF
 }

@@ -469,4 +469,14 @@ EOF
    def test_command
      assert_parse("[Script, [Begin, [Nil]]]", "begin  # hi\nend")
    end
+
+   def test_macros
+     assert_parse("[Script, [Unquote, [Identifier, x]]]", '`x`')
+     assert_parse("[Script, [Class, [Unquote, [Constant, A]], [Fixnum, 1], null]]", 'class `A`;1;end')
+     assert_parse("[Script, [Def, [Unquote, [Identifier, foo]], [Arguments, [[RequiredArgument, a, null]], null, null, null, null], [Fixnum, 1]]]",
+                  "def `foo`(a); 1; end")
+    assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, [Unquote, [Identifier, a]], null]], null, null, null, null], [Fixnum, 1]]]",
+                 "def foo(`a`); 1; end")
+    assert_parse("[Script, [Call, [Unquote, [Identifier, foo]], [Identifier, a], null, null]]", 'a.`foo`')
+   end
 end

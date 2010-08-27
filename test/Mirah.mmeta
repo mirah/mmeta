@@ -179,6 +179,7 @@ parser MirahParser {
           | ($Return)=> primary2_return
           | ($Quote|$Question|$LShift)=> string
           | ($Slash)=> regexp
+          | ($Backtick)=> unquote
           | primary2_id
           ;
   primary2_super
@@ -285,6 +286,7 @@ parser MirahParser {
   @Memo
   f_norm_arg: f_bad_arg
             | l=label BEG t=value(primary) n={List(l).get(1)} { [n, t] }
+            | n=unquote ($Colon BEG t=value(primary))? { [n, t] }
             | n=identifier { [n, nil] };
 
   f_arg_item: ~f_opt n=f_norm_arg -> ^(RequiredArgument n+);
@@ -382,10 +384,21 @@ parser MirahParser {
   arg_value: a=arg {checkExpression(a)};
 
   trailer: . ("," | nl)?;
-  operation: ($FID)=>fid | ($CONSTANT)=>constant | ($IDENTIFIER|lastdot)=> identifier;
-  operation2: ($FID)=>fid | ($CONSTANT)=>constant | ($IDENTIFIER)=>identifier
-            | (lastdot)=> (identifier | op) | op;
-  operation3: ($FID)=>fid | ($IDENTIFIER)=>identifier |(lastdot)=> (identifier | op) | op;
+  operation: ($FID)=>fid
+           | ($CONSTANT)=>constant
+           | ($IDENTIFIER|lastdot)=> identifier
+           | ($Backtick)=> unquote;
+  operation2: ($FID)=>fid
+            | ($CONSTANT)=>constant
+            | ($IDENTIFIER)=>identifier
+            | ($Backtick)=> unquote
+            | (lastdot)=> (identifier | op)
+            | op;
+  operation3: ($FID)=>fid
+            | ($IDENTIFIER)=>identifier
+            | ($Backtick)=> unquote
+            | (lastdot)=> (identifier | op)
+            | op;
   dot: opt_nl $Dot ~"." opt_nl;
   colons: $Colons opt_nl;
   dot_or_colon: dot | colons;
@@ -451,16 +464,19 @@ parser MirahParser {
   identifier: t=( $IDENTIFIER
                 | lastdot $BEGIN..$Yield
                 ) ~(":" ~":") {Token(t).text};
+  unquote: $Backtick e=expr $Backtick -> ^(Unquote e);
   identifier2: t=($IDENTIFIER|$CONSTANT|$BEGIN..$Yield) { Token(t).text };
   cvar: t=$ClassVar {Token(t).text.substring(2)};
   ivar: t=$InstVar {Token(t).text.substring(1)};
   fid: t=$FID {Token(t).text};
-  fname: fid
-       | n=identifier2 t=( &"=" $EQ {"="}
-                         | {""}
-                         )
-         {"#{n}#{t}"}
-       | op;
+  fname: ($FID)=> fid
+       | ($Backtick)=> unquote
+       | ( n=identifier2 t=( &"=" $EQ {"="}
+                           | {""}
+                           )
+           {"#{n}#{t}"}
+         | op
+         );
 
   op: ($LT)=> $LT {"<"}
     | ($LE)=> $LE {"<="}
@@ -482,6 +498,7 @@ parser MirahParser {
 
   @Memo
   cname: c=constant -> ^(Constant c)
+       | unquote
        | &identifier !"class/module name must be CONSTANT" ?{false};
 
   # JRuby allows primary_value in cpath. Do we want that?
