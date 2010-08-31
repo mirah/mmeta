@@ -87,13 +87,13 @@ parser MirahParser {
   nl: $NL heredoc;
 
   @Memo
-  statement: f=statement2 b= ->^(PH)
-             t=( ($If)=> $If c=value(expr) -> ^(If c b nil)
-               | ($Unless)=> $Unless c=value(expr) -> ^(If c nil b)
-               | ($While)=> $While c=value(expr) -> ^(WhileMod c b)
-               | ($Until)=> $Until c=value(expr) -> ^(UntilMod c b)
-               | ($Rescue)=> $Rescue r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
-               )* {tangle(f, t)};
+  statement: f=statement2
+             ( ($If)=> $If c=value(expr) f=-> ^(If c f nil)
+             | ($Unless)=> $Unless c=value(expr) f=-> ^(If c nil f)
+             | ($While)=> $While c=value(expr) f=-> ^(WhileMod c f)
+             | ($Until)=> $Until c=value(expr) f=-> ^(UntilMod c f)
+             | ($Rescue)=> $Rescue r=statement f=-> ^(Rescue f [^(RescueClause [] nil r)] nil)
+             )* {f};
   statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
                 l=var_lhs $AndEq opt_nl r=command_call
                 b=assign(l, r)
@@ -121,14 +121,15 @@ parser MirahParser {
   value v=_ : {checkExpression(v)};
 
   @Memo
-  expr: h=( ($Not)=> $Not opt_nl e=expr -> ^(Not e)
+  expr: a=( ($Not)=> $Not opt_nl e=expr -> ^(Not e)
           | ($Bang)=> ($Bang e=command_call -> ^(Not e) | arg12)
           | ( c=variable ."?" opt_nl t=arg opt_nl . ":" opt_nl e=arg -> ^(If c t e)
             | command_call
             | arg
             )
-          ) a={["PH"]} tail=( ($And)=> $And opt_nl b=expr -> ^(And a b)
-                            | ($Or)=> $Or opt_nl b=expr -> ^(Or a b))* {tangle(h, tail)};
+          )
+        ( ($And)=> $And opt_nl b=expr a=-> ^(And a b)
+        | ($Or)=> $Or opt_nl b=expr a=-> ^(Or a b))* {a};
 
   # Node:command - fcall/call/yield/super [!null]
   @Memo
@@ -146,18 +147,18 @@ parser MirahParser {
               # | $Next a=call_args -> ^(Next a+)
 
   # Node:block_command - A call with a block (foo.bar {...}, foo::bar {...}, bar {...}) [!null]
-  block_command: h=block_call t=(dot_or_colon op=operation2 a=command_args
-                                 -> ^(Call op ["PH"] a))* {tangle(h, t)};
+  block_command: h=block_call (dot_or_colon op=operation2 a=command_args
+                               h=-> ^(Call op h a))* {h};
   @Memo
   primary scope(@BEG, @cond)
-         : h=value(primary2) t=->^(PH) tail=( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? -> ^(Call "call" t a iter)
-                                            | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? -> ^(Call op t a iter)
-                                            | (colons)=> colons (op=operation2 a=paren_args iter=brace_block? -> ^(Call op t a iter)
-                                                                 |b=constant ~(paren_args|call_args|$EQ..$OpAssign) -> ^(Colon2Const t b)
-                                                                 |op=operation3 ~($EQ..$OpAssign) iter=brace_block? -> ^(Call op t iter)
-                                                                 )
-                                            | ($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~($EQ..$OpAssign) -> ^(Call "[]" t a iter)
-                                            )* {tangle(h, tail)};
+         : h=value(primary2) ( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? h=-> ^(Call "call" h a iter)
+                             | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? h=-> ^(Call op h a iter)
+                             | (colons)=> colons (op=operation2 a=paren_args iter=brace_block? h=-> ^(Call op h a iter)
+                                                  |b=constant ~(paren_args|call_args|$EQ..$OpAssign) h=-> ^(Colon2Const h b)
+                                                  |op=operation3 ~($EQ..$OpAssign) iter=brace_block? h=-> ^(Call op h iter)
+                                                  )
+                             | ($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" iter=brace_block? ~($EQ..$OpAssign) h=-> ^(Call "[]" h a iter)
+                             )* {h};
 
   primary2: ($Super)=> primary2_super
           | ($LParen)=> primary2_lparen
@@ -315,7 +316,9 @@ parser MirahParser {
 
   # Do we need bv_decls?
   block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
-  block_call: c=command b=do_block h={n=Ast(Ast(c).clone); n.add(b);n} t=(dot_or_colon op=operation2 a=opt_paren_args -> ^(Call op ["PH"] a))* {tangle(h, t)};
+  block_call: c=command b=do_block
+              h={n=Ast(Ast(c).clone); n.add(b);n}
+              (dot_or_colon op=operation2 a=opt_paren_args h=-> ^(Call op h a))* {h};
 
   paren_args: $LParen! opt_nl c=call_args? opt_nl .")" {c.nil? ? Object(ArrayList.new) : c};
   opt_paren_args: ($EOF)=> {nil}
@@ -329,8 +332,8 @@ parser MirahParser {
   assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
 
   @Memo
-  arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
-                    -> ^(If ["PH"] t e))* {tangle(h, tail)};
+  arg: h=arg0 (."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
+               h=-> ^(If h t e))* {h};
   arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
           l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
@@ -358,18 +361,18 @@ parser MirahParser {
         );
 
   arg2: &(. oneOf("+-!~")|primary)
-        a=arg3 t=(."||" opt_nl b=arg2 -> ^(Or ["PH"] b))* {tangle(a, t)};
-  arg3: a=arg4 t=(."&&" opt_nl b=arg3 -> ^(And ["PH"] b))* {tangle(a, t)};
+        a=arg3 t=(."||" opt_nl b=arg2 a=-> ^(Or a b))* {a};
+  arg3: a=arg4 t=(."&&" opt_nl b=arg3 a=-> ^(And a b))* {a};
   arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
-                   -> ^(Call op ["PH"] [b])
-                 |."!~" opt_nl b=arg4 -> ^(Not ^(Call "=~" ["PH"] [b])))* {tangle(a, t)};
-  arg5: a=arg6 t=(."|" opt_nl b=arg5 -> ^(Call "|" ["PH"] [b])
-                 |."^" opt_nl b=arg5 -> ^(Call "^" ["PH"] [b]))* {tangle(a, t)};
-  arg6: a=arg7 t=(."&" opt_nl b=arg6 -> ^(Call "&" ["PH"] [b]))* {tangle(a, t)};
-  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 -> ^(Call op a [b]))* {tangle(a, t)};
-  arg8: a=arg9 t=(."+" opt_nl b=arg8 -> ^(Call "+" ["PH"] [b])
-                 |."-" opt_nl b=arg8 -> ^(Call "-" ["PH"] [b]))* {tangle(a, t)};
-  arg9: a=arg10 t=(. op=oneOf("*%/") opt_nl b=arg9 -> ^(Call op ["PH"] [b]))* {tangle(a, t)};
+                   a=-> ^(Call op a [b])
+                 |."!~" opt_nl b=arg4 a=-> ^(Not ^(Call "=~" a [b])))* {a};
+  arg5: a=arg6 t=(."|" opt_nl b=arg5 a=-> ^(Call "|" a [b])
+                 |."^" opt_nl b=arg5 a=-> ^(Call "^" a [b]))* {a};
+  arg6: a=arg7 t=(."&" opt_nl b=arg6 a=-> ^(Call "&" a [b]))* {a};
+  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 a=-> ^(Call op a [b]))* {a};
+  arg8: a=arg9 t=(."+" opt_nl b=arg8 a=-> ^(Call "+" a [b])
+                 |."-" opt_nl b=arg8 a=-> ^(Call "-" a [b]))* {a};
+  arg9: a=arg10 t=(. op=oneOf("*%/") opt_nl b=arg9 a=-> ^(Call op a [b]))* {a};
   arg10: uminus v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
                         | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
                         | -> ^(Call "-@" v)
@@ -880,23 +883,6 @@ parser MirahParser {
     Double.valueOf(-d)
   }
 
-  def tangle(head:Object, tail:Object) {
-    ph = ArrayList.new
-    ph.add("PH")
-    result = head
-    List(tail).each do |item|
-      inner = result
-      outer = List(item)
-      index = -1
-      while index == -1
-        index = outer.indexOf(ph)
-        outer = List(outer.get(1)) if index == -1
-      end
-      outer.set(index, inner)
-      result = item
-    end
-    result
-  }
   def lex {
     #_enter("lex")
     #_exit(
