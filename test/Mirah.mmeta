@@ -94,15 +94,15 @@ parser MirahParser {
                | ($Until)=> $Until c=value(expr) -> ^(UntilMod c b)
                | ($Rescue)=> $Rescue r=statement -> ^(Rescue b [^(RescueClause [] nil r)] nil)
                )* {tangle(f, t)};
-  statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $AndEq)=>
+  statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
                 l=var_lhs $AndEq opt_nl r=command_call
                 b=assign(l, r)
                 -> ^(If gettable2(l) b null)
-              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OrEq)=>
+              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
                 l=var_lhs $OrEq opt_nl r=command_call
                 b=assign(l, r)
                 -> ^(If gettable2(l) null b)
-              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OpAssign)=>
+              | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
                 l=var_lhs op=op_assign r=command_call
                 b= -> ^(Call op gettable2(l) [r])
                 assign(l, b)
@@ -331,15 +331,15 @@ parser MirahParser {
   @Memo
   arg: h=arg0 tail=(."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
                     -> ^(If ["PH"] t e))* {tangle(h, tail)};
-  arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $AndEq)=>
+  arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
           l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) b null)
-        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OrEq)=>
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
           l=var_lhs $OrEq opt_nl r=arg
           b=assign(l, r)
           -> ^(If gettable2(l) null b)
-        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER|unquote) $OpAssign)=>
+        | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
           l=var_lhs op=assignment_op r=arg
           b= -> ^(Call op gettable2(l) [r])
           assign(l, b)
@@ -692,7 +692,6 @@ parser MirahParser {
       "LocalAssign" => "Local",
       "InstVarAssign" => "InstVar",
       "ClassVarAssign" => "ClassVar",
-      "UnquoteAssign" => "Unquote",
     }
   }
 
