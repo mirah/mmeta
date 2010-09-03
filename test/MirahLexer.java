@@ -55,6 +55,9 @@ class MirahLexer {
       char c0 = chars[i];
       i += 1;
       switch (c0) {
+      case '$':
+        type = Tokens.tDollar;
+        break;
       case '@':
         if (string.startsWith("@", i) && i + 1 < end) {
           i += 1;

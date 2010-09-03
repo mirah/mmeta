@@ -82,6 +82,7 @@ public enum Tokens {
   tQuestion,
   tDigit,
   tBacktick,
+  tDollar,
   tUNKNOWN,
   tEOF
 }

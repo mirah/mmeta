@@ -485,6 +485,15 @@ parser MirahParser {
          | op
          );
 
+  annotation: $Dollar n=$CONSTANT
+              arg=(($LBrack)=> $LBrack opt_nl ( e=expr opt_nl ."]" -> ^(Hash ^(Assoc ^(Symbol "value") e))
+                                              | a=listOf(:assoc) trailer opt_nl . "]" -> ^(Hash a+)
+                                              | ."]" {nil}
+                                              )
+                  | {nil} )
+              name={Token(n).text}
+              -> ^(Annotation name arg);
+
   op: ($LT)=> $LT {"<"}
     | ($LE)=> $LE {"<="}
     | ($LEG)=> $LEG {"<=>"}
@@ -500,7 +509,7 @@ parser MirahParser {
     | ($LBrack)=> . ("[]=" | "[]")
     | ($UNKNOWN)=>
       . ( "===" | "==" | "=~" | "**" | "+@" | "-@"
-        | oneOf("&|^+-*%~")
+        | oneOf("&|^+-*%~") { text(_real_start == -1 ? _start : _real_start, _pos) }
         );
 
   @Memo
@@ -524,6 +533,7 @@ parser MirahParser {
           | ($False)=> $False                         -> ^(False)
           | ($ClassVar)=> v=cvar                      -> ^(ClassVar v)
           | ($InstVar)=> v=ivar                       -> ^(InstVar v)
+          | ($Dollar)=> annotation
           | ($FID)=> n=fid                            -> ^(FCall n)
           | ($CONSTANT)=> c=constant                  -> ^(Constant c)
           | ($IDENTIFIER)=> n=identifier              -> ^(Identifier n)
@@ -689,7 +699,7 @@ parser MirahParser {
     @reserved = EnumSet.range(Tokens.tBEGIN, Tokens.tYield)
     @heredocs = LinkedList.new
     @nil = Ast.new('Nil')
-    @nil.start_position = @nil.end_position = Position.new(0, 0, 0)
+    @nil.start_position = @nil.end_position = Position.new('', 0, 0, 0)
     @lhs_map = {
       "ConstAssign" => "Constant",
       "LocalAssign" => "Local",

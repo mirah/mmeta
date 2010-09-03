@@ -131,6 +131,7 @@ public class BaseParser {
     private long nodeCount;
     private ArrayDeque<String> parseTree = new ArrayDeque<String>();
 
+    public String filename = "<unknown>";
     public int _pos = 0;
     public int _pos() { return _pos; }
     public void _pos_set(int pos) { _pos = pos; }
@@ -397,7 +398,7 @@ public class BaseParser {
         int line = lines.get(linepos);
 
         // TODO actually keep track of every apply(nl) that succeeds
-        return new Position(pos, linepos, line);
+        return new Position(filename, pos, linepos, line);
     }
 
     public Object col() {

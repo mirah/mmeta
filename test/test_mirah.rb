@@ -480,4 +480,10 @@ EOF
     assert_parse("[Script, [Call, [Unquote, [Identifier, foo]], [Identifier, a], null, null]]", 'a.`foo`')
     assert_parse("[Script, [UnquoteAssign, [Identifier, a], [Identifier, b]]]", "`a` = b")
    end
+
+   def test_annotation
+     assert_parse("[Script, [Annotation, Foo, null]]", "$Foo")
+     assert_parse("[Script, [Annotation, Foo, [Hash, [Assoc, [Symbol, value], [Constant, Bar]]]]]", "$Foo[Bar]")
+     assert_parse("[Script, [Annotation, Foo, [Hash, [Assoc, [Symbol, foo], [Constant, Bar]]]]]", "$Foo[foo: Bar]")
+   end
 end

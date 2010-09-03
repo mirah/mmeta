@@ -4,8 +4,9 @@ import java.util.Collections
 import java.util.List
 
 class Position
-    def initialize(pos:int, linepos:int, line:int)
+    def initialize(filename:String, pos:int, linepos:int, line:int)
       # humans start counting at 1, not 0, thus we add 1 to line and column
+      @filename = filename
       @pos = pos
       @line = line + 1
       @col = pos - linepos + 1
@@ -13,6 +14,10 @@ class Position
 
     def toString
         "(line: #{line}, char: #{col})"
+    end
+
+    def filename
+      @filename
     end
 
     def pos
