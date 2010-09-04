@@ -52,7 +52,7 @@ parser MirahParser {
   rlistOf r=_: h=apply(r) t=(comma apply(r))* { [h] + t };
   listOf e=_: rlistOf(e)
               | empty                                               { ArrayList.new } ;
-
+  sp: oneOf(" \t\f\r\v") | "\\" nl | comment;
   @Memo
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
@@ -305,7 +305,7 @@ parser MirahParser {
   f_block_arg: ."&" n=f_norm_arg $EQ !"nil" $Nil -> ^(OptBlockArg n+)
              | ."&"! n=f_norm_arg -> ^(BlockArg n+);
 
-  block_arg: ."&" v=arg_value -> ^(BlockPass v);
+  block_arg: isBEG ."&" ~sp v=arg_value -> ^(BlockPass v);
 
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
@@ -372,7 +372,7 @@ parser MirahParser {
   arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 a=-> ^(Call op a [b]))* {a};
   arg8: a=arg9 t=(."+" opt_nl b=arg8 a=-> ^(Call "+" a [b])
                  |."-" opt_nl b=arg8 a=-> ^(Call "-" a [b]))* {a};
-  arg9: a=arg10 t=(. op=oneOf("*%/") opt_nl b=arg9 a=-> ^(Call op a [b]))* {a};
+  arg9: a=arg10 t=(. oneOf("*%/") op={text(_pos-1, _pos)} opt_nl b=arg9 a=-> ^(Call op a [b]))* {a};
   arg10: uminus v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
                         | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
                         | -> ^(Call "-@" v)
@@ -422,9 +422,10 @@ parser MirahParser {
   uminus: isBEG2 . "-"  opt_nl;
   uplus: isBEG2 . "+" opt_nl;
 
-  splat: ."*" v=arg_value s= -> ^(Splat v) { [s] };
-  args: l=rlistOf(:arg_value) (comma s=splat {l+s} | { l })
-      | splat;
+  splat: isBEG "*" ~sp v=arg_value s= -> ^(Splat v) { [s] };
+  args: l=rlistOf(:arg_value);
+      #  (comma s=splat {l+s} | { l })
+      #| splat;
 
   call_assocs scope(@BEG): l=rlistOf(:assoc) -> ^(Hash l+);
   call_args: c=command { [c] }
