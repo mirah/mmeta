@@ -214,8 +214,8 @@ parser MirahParser {
                   | -> ^(Yield)
                   );
   primary2_bang
-         : $Bang $LParen opt_nl (.")" -> ^(Call "!" ^(Nil))
-                                | e=value(expr) opt_nl .")" -> ^(Call "!" e)
+         : $Bang $LParen opt_nl (.")" -> ^(Not ^(Nil))
+                                | e=value(expr) opt_nl .")" -> ^(Not e)
                                 );
   primary2_if
          : isBEG2 $If! opt_nl cond=value(expr) Then body=compstmt tail=if_tail $End
@@ -381,7 +381,8 @@ parser MirahParser {
   arg11: a=arg12 ."**" opt_nl b=arg11 -> ^(Call "**" a [b])
        | arg12;
   @Memo
-  arg12: . op=oneOf("!~") opt_nl v=arg12 -> ^(Call op v)
+  arg12: ."~" opt_nl v=arg12 -> ^(Call "~" v)
+       | ."!" opt_nl v=arg12 -> ^(Not v)
        | uplus v=arg12 -> ^(Call "+@" v)
        | value(primary);
 
