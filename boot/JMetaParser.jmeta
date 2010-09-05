@@ -58,7 +58,8 @@ public parser JMetaParser {
 
     string        : s=tsString                                          { [:Str, s] } ;
     number        : sign=("-"|"+"|empty) ds=digit+                      { return new Object[] {"HLit", ""+ sign + join(ds)}; } ;
-    symbol        : ("'"!|":") s=name                                 { [:Sym, s] } ;
+    symbol        : ("'"!|":") (s=name
+                               | "'" c=(~"'" _)+ "'" s={return join(c);}) { [:Sym, s] } ;
     k keyword=_   : str(keyword) ~(nameFirst|digit)                     { keyword } ;
 
     error         : "!" msg=(dollarstring|empty)                        { [:Error, msg] } ;

@@ -379,19 +379,32 @@ EOF
   def test_arg
     assert_parse("[Script, [LocalAssign, a, [Rescue, [Identifier, b], [[RescueClause, [], null, [Identifier, c]]], null]]]",
                  "a = b rescue c")
-    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [Identifier, b]], null]]",
+    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [Identifier, b]], [Local, a]]]",
                  "a &&= b")
-    assert_parse("[Script, [If, [Local, a], null, [LocalAssign, a, [Identifier, b]]]]",
+    assert_parse("[Script, [If, [Local, a], [Local, a], [LocalAssign, a, [Identifier, b]]]]",
                  "a ||= b")
     assert_parse("[Script, [InstVarAssign, a, [Call, +, [InstVar, a], [[Fixnum, 1]]]]]",
                  "@a += 1")
-    assert_parse("[Script, [OpElemAssign, [Identifier, a], -, [[Fixnum, 1]], [Fixnum, 2]]]",
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [LocalAssign, $ptemp2, [Fixnum, 1]]," +
+                                " [AttrAssign, []=, [Local, $ptemp1], [[Local, $ptemp2]]," +
+                                             " [Call, -, [Call, [], [Local, $ptemp1], [[Local, $ptemp2]]], [Fixnum, 2]]" +
+                                "]]]",
                  "a[1] -= 2")
-    assert_parse("[Script, [OpAssign, [Identifier, a], foo, /, [Identifier, b]]]",
-                 "a.foo /= b")
-    assert_parse("[Script, [OpAssign, [Identifier, a], foo, *, [Identifier, b]]]",
-                 "a::foo *= b")
-    assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [Identifier, b]]]",
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [And, [Call, foo, [Local, $ptemp1], []]," +
+                                      " [AttrAssign, foo=, [Local, $ptemp1], [], [Identifier, b]]]" +
+                                "]]",
+                 "a.foo &&= b")
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [Or, [Call, foo, [Local, $ptemp1], []]," +
+                                     " [AttrAssign, foo=, [Local, $ptemp1], [], [Identifier, b]]]" +
+                                "]]",
+                 "a::foo ||= b")
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [AttrAssign, Foo=, [Local, $ptemp1], []," +
+                                             " [Call, &, [Call, Foo, [Local, $ptemp1], []], [Identifier, b]]" +
+                                "]]]",
                  "a.Foo &= b")
     assert_parse("[Script, [If, [Identifier, a], [Identifier, b], [Identifier, c]]]",
                  "a ? b : c")
@@ -435,17 +448,30 @@ EOF
                  "a rescue b")
     assert_parse("[Script, [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]]]", "a = foo bar")
     assert_parse("[Script, [LocalAssign, a, [Call, +, [Local, a], [[FCall, foo, [[Identifier, bar]], null]]]]]", "a += foo bar")
-    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]], null]]",
+    assert_parse("[Script, [If, [Local, a], [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]], [Local, a]]]",
                  "a &&= foo bar")
-    assert_parse("[Script, [If, [Local, a], null, [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]]]]",
+    assert_parse("[Script, [If, [Local, a], [Local, a], [LocalAssign, a, [FCall, foo, [[Identifier, bar]], null]]]]",
                  "a ||= foo bar")
-    assert_parse("[Script, [OpElemAssign, [Identifier, a], -, [[Fixnum, 1]], [FCall, foo, [[Identifier, bar]], null]]]",
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [LocalAssign, $ptemp2, [Fixnum, 1]]," +
+                                " [AttrAssign, []=, [Local, $ptemp1], [[Local, $ptemp2]]," +
+                                             " [Call, -, [Call, [], [Local, $ptemp1], [[Local, $ptemp2]]], [FCall, foo, [[Identifier, bar]], null]]" +
+                                "]]]",
                  "a[1] -= foo bar")
-    assert_parse("[Script, [OpAssign, [Identifier, a], foo, /, [FCall, foo, [[Identifier, bar]], null]]]",
-                 "a.foo /= foo bar")
-    assert_parse("[Script, [OpAssign, [Identifier, a], foo, *, [FCall, foo, [[Identifier, bar]], null]]]",
-                 "a::foo *= foo bar")
-    assert_parse("[Script, [OpAssign, [Identifier, a], Foo, &, [FCall, foo, [[Identifier, bar]], null]]]",
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [And, [Call, foo, [Local, $ptemp1], []]," +
+                                      " [AttrAssign, foo=, [Local, $ptemp1], [], [FCall, foo, [[Identifier, bar]], null]]]" +
+                                "]]",
+                 "a.foo &&= foo bar")
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [Or, [Call, foo, [Local, $ptemp1], []]," +
+                                     " [AttrAssign, foo=, [Local, $ptemp1], [], [FCall, foo, [[Identifier, bar]], null]]]" +
+                                "]]",
+                 "a::foo ||= foo bar")
+    assert_parse("[Script, [Body, [LocalAssign, $ptemp1, [Identifier, a]]," +
+                                " [AttrAssign, Foo=, [Local, $ptemp1], []," +
+                                             " [Call, &, [Call, Foo, [Local, $ptemp1], []], [FCall, foo, [[Identifier, bar]], null]]" +
+                                "]]]",
                  "a.Foo &= foo bar")
    end
 

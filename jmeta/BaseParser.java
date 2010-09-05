@@ -448,6 +448,7 @@ public class BaseParser {
     }
 
     public Object _peek() {
+      if (! args.isEmpty()) return args.peek();
         if (_string != null)
             if (_pos < _chars.length) return _chars[_pos]; else return ERROR;
         if (_list != null)
@@ -501,7 +502,7 @@ public class BaseParser {
     /// '`...' parses a string based symbols when list parsing (e.g. `new Object[] { "hello" }` matches `[ `hello ]`)
     public Object _sym(String s) {
         trace("try _sym():", s);
-        if (_list == null)
+        if (_list == null && args.isEmpty())
             throw new IllegalStateException("symbol ('`"+ s +"') is only available in list parsing");
         if (_peek().equals(s)) { _any(); return trace(" ok _sym():",s); } else return ERROR;
     }

@@ -97,22 +97,22 @@ parser MirahParser {
   statement2: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
                 l=var_lhs $AndEq opt_nl r=command_call
                 b=assign(l, r)
-                -> ^(If gettable2(l) b null)
+                -> ^(If gettable2(l) b gettable2(l))
               | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
                 l=var_lhs $OrEq opt_nl r=command_call
                 b=assign(l, r)
-                -> ^(If gettable2(l) null b)
+                -> ^(If gettable2(l) gettable2(l) b)
               | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
                 l=var_lhs op=op_assign r=command_call
                 b= -> ^(Call op gettable2(l) [r])
                 assign(l, b)
               | ( l=lhs $EQ r=command_call assign(l, r)
                 | t=value(primary) (($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
-                                                -> ^(OpElemAssign t op a v)
+                                                op_attr_assign(t, "[]", a, op, v)
                                    | ($Colons)=> colons f=identifier op=op_assign v=command_call
-                                                 -> ^(OpAssign t f op v)
+                                                 op_attr_assign(t, f, [], op, v)
                                    | dot f=(constant | identifier) op=op_assign v=command_call
-                                     -> ^(OpAssign t f op v)
+                                     op_attr_assign(t, f, [], op, v)
                                    )
               )
             | expr
@@ -337,22 +337,22 @@ parser MirahParser {
   arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
           l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
-          -> ^(If gettable2(l) b null)
+          -> ^(If gettable2(l) b gettable2(l))
         | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OrEq)=>
           l=var_lhs $OrEq opt_nl r=arg
           b=assign(l, r)
-          -> ^(If gettable2(l) null b)
+          -> ^(If gettable2(l) gettable2(l) b)
         | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $OpAssign)=>
           l=var_lhs op=assignment_op r=arg
           b= -> ^(Call op gettable2(l) [r])
           assign(l, b)
         | ( l=lhs $EQ r=maybe_rescue assign(l, r)
           | t=value(primary) ($LBrack opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
-                               -> ^(OpElemAssign t op a v)
+                               op_attr_assign(t, "[]", a, op, v)
                              |colons constant assignment_op arg
                                !"constant re-assignment prohibited" ?{false}
                              |dot_or_colon f=(constant | identifier) op=assignment_op v=arg
-                               -> ^(OpAssign t f op v)
+                              op_attr_assign(t, f, [], op, v)
                              )
           | colon3 constant assignment_op arg
              !"constant re-assignment prohibited" ?{false}
@@ -646,6 +646,30 @@ parser MirahParser {
 
   lastdot: ?{_rpeek.indexOf(".") == 0};
 
+  op_attr_assign target=_ attr=_ args=_ op=_ value=_
+               : target2=-> ^(LocalAssign temp target)
+                 args2=save_temps(args)
+                 assignment=op_attr_assign_body(op, target2, attr, args2, value)
+                 l={[target2] + args2 + [assignment]}
+                 -> ^(Body l+);
+
+  op_attr_assign_body op=:'&&' target=_ attr=_ args=_ value=_
+      : -> ^(And ^(Call attr gettable2(target) get_temps(args))
+                 ^(AttrAssign "#{attr}=" gettable2(target) get_temps(args) value)
+            );
+  op_attr_assign_body op=:'||' target=_ attr=_ args=_ value=_
+      : -> ^(Or ^(Call attr gettable2(target) get_temps(args))
+                ^(AttrAssign "#{attr}=" gettable2(target) get_temps(args) value)
+            );
+  op_attr_assign_body op=_ target=_ attr=_ args=_ value=_
+      : -> ^(AttrAssign "#{attr}=" gettable2(target) get_temps(args)
+                        ^(Call op ^(Call attr gettable2(target) get_temps(args))
+                                  value
+                         )
+            );
+
+  assign_temp value=_ : -> ^(LocalAssign temp value);
+
   def self.parse_args(args:String[]) {
     argc = args.length
     if args[0].equals "-v"
@@ -711,7 +735,31 @@ parser MirahParser {
   }
 
   def init {
-    @lexer = MirahLexer.new(_string, @chars, self);
+    @lexer = MirahLexer.new(_string, @chars, self)
+    @temps = 0
+  }
+
+  def temp {
+    "$ptemp#{@temps += 1}"
+  }
+
+  def save_temps {
+    items = List(_pop)
+    temps = ArrayList.new
+    items.each do |item|
+      _push(item)
+      temps.add(assign_temp)
+    end
+    temps
+  }
+
+  def get_temps(_items:Object) {
+    items = List(_items)
+    gets = ArrayList.new
+    items.each do |item|
+      gets.add(gettable2(item))
+    end
+    gets
   }
 
   def oneOf() {
@@ -882,6 +930,7 @@ parser MirahParser {
     n = Ast(e)
     n2 = Ast(n.clone)
     n2.name = String(@lhs_map.get(n.name))
+    n2.remove(2) if n2.size == 3
     n2
   }
 
