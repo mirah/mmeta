@@ -419,6 +419,7 @@ EOF
                  "a * b")
     assert_parse("[Script, [Call, *, [Identifier, a], [[Identifier, b]]]]",
                  "a*b")
+    assert_parse("[Script, [Call, <, [Identifier, a], [[Fixnum, -1]]]]", "a < -1")
     assert_parse("[Script, [Fixnum, -1]]", "-1")
     assert_parse("[Script, [Float, -1.0]]", "-1.0")
     assert_parse("[Script, [Call, -@, [Identifier, a]]]", "-a")

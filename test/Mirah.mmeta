@@ -332,8 +332,8 @@ parser MirahParser {
   assign lhs=_ rhs=_ : { n=Ast(Ast(lhs).clone); n.add(rhs); n };
 
   @Memo
-  arg: h=arg0 (."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
-               h=-> ^(If h t e))* {h};
+  arg scope(@BEG): h=arg0 (."?" opt_nl t=arg opt_nl .":" opt_nl e=arg
+                           h=-> ^(If h t e))* {h};
   arg0: ( (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $AndEq)=>
           l=var_lhs $AndEq opt_nl r=arg
           b=assign(l, r)
@@ -361,29 +361,29 @@ parser MirahParser {
         );
 
   arg2: &(. oneOf("+-!~")|primary)
-        a=arg3 t=(."||" opt_nl b=arg2 a=-> ^(Or a b))* {a};
-  arg3: a=arg4 t=(."&&" opt_nl b=arg3 a=-> ^(And a b))* {a};
-  arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl b=arg4
+        a=arg3 t=(."||" opt_nl BEG b=arg2 a=-> ^(Or a b))* {a};
+  arg3: a=arg4 t=(."&&" opt_nl BEG b=arg3 a=-> ^(And a b))* {a};
+  arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl BEG b=arg4
                    a=-> ^(Call op a [b])
-                 |."!~" opt_nl b=arg4 a=-> ^(Not ^(Call "=~" a [b])))* {a};
-  arg5: a=arg6 t=(."|" opt_nl b=arg5 a=-> ^(Call "|" a [b])
-                 |."^" opt_nl b=arg5 a=-> ^(Call "^" a [b]))* {a};
-  arg6: a=arg7 t=(."&" opt_nl b=arg6 a=-> ^(Call "&" a [b]))* {a};
-  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl b=arg7 a=-> ^(Call op a [b]))* {a};
-  arg8: a=arg9 t=(."+" opt_nl b=arg8 a=-> ^(Call "+" a [b])
-                 |."-" opt_nl b=arg8 a=-> ^(Call "-" a [b]))* {a};
-  arg9: a=arg10 t=(. oneOf("*%/") op={text(_pos-1, _pos)} opt_nl b=arg9 a=-> ^(Call op a [b]))* {a};
-  arg10: uminus v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
-                        | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
-                        | -> ^(Call "-@" v)
-                        )
+                 |."!~" opt_nl BEG b=arg4 a=-> ^(Not ^(Call "=~" a [b])))* {a};
+  arg5: a=arg6 t=(."|" opt_nl BEG b=arg5 a=-> ^(Call "|" a [b])
+                 |."^" opt_nl BEG b=arg5 a=-> ^(Call "^" a [b]))* {a};
+  arg6: a=arg7 t=(."&" opt_nl BEG b=arg6 a=-> ^(Call "&" a [b]))* {a};
+  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl BEG b=arg7 a=-> ^(Call op a [b]))* {a};
+  arg8: a=arg9 t=(."+" opt_nl BEG b=arg8 a=-> ^(Call "+" a [b])
+                 |."-" opt_nl BEG b=arg8 a=-> ^(Call "-" a [b]))* {a};
+  arg9: a=arg10 t=(. oneOf("*%/") op={text(_pos-1, _pos)} opt_nl BEG b=arg9 a=-> ^(Call op a [b]))* {a};
+  arg10: uminus BEG v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
+                            | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
+                            | -> ^(Call "-@" v)
+                            )
        | arg11;
-  arg11: a=arg12 ."**" opt_nl b=arg11 -> ^(Call "**" a [b])
+  arg11: a=arg12 ."**" opt_nl BEG b=arg11 -> ^(Call "**" a [b])
        | arg12;
   @Memo
-  arg12: ."~" opt_nl v=arg12 -> ^(Call "~" v)
-       | ."!" opt_nl v=arg12 -> ^(Not v)
-       | uplus v=arg12 -> ^(Call "+@" v)
+  arg12: ."~" opt_nl BEG v=arg12 -> ^(Call "~" v)
+       | ."!" opt_nl BEG v=arg12 -> ^(Not v)
+       | uplus BEG v=arg12 -> ^(Call "+@" v)
        | value(primary);
 
   arg_value: a=arg {checkExpression(a)};
