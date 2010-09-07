@@ -173,6 +173,8 @@ EOF
     assert_parse("[Script, [Body, [DString, [EvString, [String, B\n]], [String, \n]], [String, b\n], [Constant, A]]]",
                  "<<A;<<B\n\#{<<A\nB\nA\n}\nA\nb\nB\nA\n")
     assert_fails("<<FOO")
+    assert_parse("[Script, [FCall, a, [[String, c\n]], null]]", "a <<b\nc\nb\n")
+    assert_parse("[Script, [Body, [Call, <<, [Identifier, a], [[Identifier, b]]], [Identifier, c], [Identifier, b]]]", "a << b\nc\n b\n")
   end
 
   def test_regexp

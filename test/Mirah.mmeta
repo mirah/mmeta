@@ -474,15 +474,15 @@ parser MirahParser {
                 | lastdot $BEGIN..$Yield
                 ) ~(":" ~":") {Token(t).text};
   unquote: $Backtick e=expr $Backtick -> ^(Unquote e);
-  identifier2: t=($IDENTIFIER|$CONSTANT|$BEGIN..$Yield) { Token(t).text };
+  identifier2: ~sp t=($IDENTIFIER|$CONSTANT|$BEGIN..$Yield) { Token(t).text };
   cvar: t=$ClassVar {Token(t).text.substring(2)};
   ivar: t=$InstVar {Token(t).text.substring(1)};
   fid: t=$FID {Token(t).text};
   fname: ($FID)=> fid
        | ($Backtick)=> unquote
-       | ( n=identifier2 t=( &"=" $EQ {"="}
-                           | {""}
-                           )
+       | ( . n=identifier2 t=( &"=" $EQ {"="}
+                             | {""}
+                             )
            {"#{n}#{t}"}
          | op
          );
