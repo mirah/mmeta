@@ -59,9 +59,15 @@ class MirahLexer {
         type = Tokens.tDollar;
         break;
       case '@':
-        if (string.startsWith("@", i) && i + 1 < end) {
+        if (string.startsWith("@`", i)) {
+          i += 2;
+          type = Tokens.tClassVarBacktick;
+        } else if (string.startsWith("@", i) && i + 1 < end) {
           i += 1;
           type = Tokens.tClassVar;
+        } else if (string.startsWith("`", i)) {
+          i += 1;
+          type = Tokens.tInstVarBacktick;
         } else if (i < end) {
           type = Tokens.tInstVar;
         }

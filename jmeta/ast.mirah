@@ -1,9 +1,10 @@
+import java.io.Serializable
 import java.util.AbstractList
 import java.util.ArrayList
 import java.util.Collections
 import java.util.List
 
-class Position
+class Position; implements Serializable
     def initialize(filename:String, pos:int, linepos:int, line:int)
       # humans start counting at 1, not 0, thus we add 1 to line and column
       @filename = filename

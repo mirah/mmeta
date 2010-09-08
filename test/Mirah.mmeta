@@ -142,7 +142,7 @@ parser MirahParser {
   # Node:command - call with or without block on end [!null]
   command_call: block_command
               | command
-              | $Return a=call_args -> ^(Return a+);
+              | $Return BEG a=call_args -> ^(Return a+);
               # | $Break a=call_args -> ^(Break a+)
               # | $Next a=call_args -> ^(Next a+)
 
@@ -446,7 +446,7 @@ parser MirahParser {
   @Memo
   lhs: ($Colons $CONSTANT)=> colon3 n=constant -> ^(ConstAssign ^(Colon3 n))
      | (($ClassVar|$InstVar|$CONSTANT|$IDENTIFIER) $EQ)=> var_lhs
-     | ($Backtick)=> (var_lhs | lhs2)
+     | ($Backtick|$ClassVarBacktick|$InstVarBacktick)=> (var_lhs | lhs2)
      | lhs2;
   lhs2: t=value(primary) (($LBrack)=> $LBrack opt_nl k=call_args? opt_nl ."]" -> ^(AttrAssign "[]=" t k)
                          | dot_or_colon (($CONSTANT)=> n=constant -> ^(ConstAssign ^(Colon2Const t n))
@@ -454,8 +454,8 @@ parser MirahParser {
                                         )
                          );
 
-  var_lhs: ($ClassVar)=> n=cvar -> ^(ClassVarAssign n)
-         | ($InstVar)=> n=ivar -> ^(InstVarAssign n)
+  var_lhs: ($ClassVar|$ClassVarBacktick)=> n=cvar -> ^(ClassVarAssign n)
+         | ($InstVar|$InstVarBacktick)=> n=ivar -> ^(InstVarAssign n)
          | ($CONSTANT)=> n=constant -> ^(ConstAssign n)
          | ($IDENTIFIER)=> n=identifier -> ^(LocalAssign n)
          | ($Backtick)=> u=unquote n={List(u).get(1)} -> ^(UnquoteAssign n);
@@ -475,8 +475,10 @@ parser MirahParser {
                 ) ~(":" ~":") {Token(t).text};
   unquote: $Backtick e=expr $Backtick -> ^(Unquote e);
   identifier2: ~sp t=($IDENTIFIER|$CONSTANT|$BEGIN..$Yield) { Token(t).text };
-  cvar: t=$ClassVar {Token(t).text.substring(2)};
-  ivar: t=$InstVar {Token(t).text.substring(1)};
+  cvar: t=$ClassVar {Token(t).text.substring(2)}
+      | $ClassVarBacktick e=expr $Backtick -> ^(Unquote e);
+  ivar: t=$InstVar {Token(t).text.substring(1)}
+      | $InstVarBacktick e=expr $Backtick -> ^(Unquote e);
   fid: t=$FID {Token(t).text};
   fname: ($FID)=> fid
        | ($Backtick)=> unquote
@@ -533,8 +535,8 @@ parser MirahParser {
           | ($Self)=> $Self                           -> ^(Self)
           | ($True)=> $True                           -> ^(True)
           | ($False)=> $False                         -> ^(False)
-          | ($ClassVar)=> v=cvar                      -> ^(ClassVar v)
-          | ($InstVar)=> v=ivar                       -> ^(InstVar v)
+          | ($ClassVar|$ClassVarBacktick)=> v=cvar    -> ^(ClassVar v)
+          | ($InstVar|$InstVarBacktick)=> v=ivar      -> ^(InstVar v)
           | ($Dollar)=> annotation
           | ($FID)=> n=fid                            -> ^(FCall n)
           | ($CONSTANT)=> c=constant                  -> ^(Constant c)
@@ -769,12 +771,12 @@ parser MirahParser {
 
   def _codepoint() {
     t = _any
-    return -1 if t == @error
+    return (-1) if t == @error
     character = Character(t).charValue
     if character >= 0xd800 && character <= 0xdbff
       t = _any
       if t == @error
-        return -1
+        return (-1)
       end
       return Character.toCodePoint(character, Character(t).charValue)
     else

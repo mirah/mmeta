@@ -512,6 +512,8 @@ EOF
     assert_parse("[Script, [Def, foo, [Arguments, [[RequiredArgument, [Unquote, [Identifier, a]], null]], null, null, null, null], [Fixnum, 1]]]",
                  "def foo(`a`); 1; end")
     assert_parse("[Script, [Call, [Unquote, [Identifier, foo]], [Identifier, a], null, null]]", 'a.`foo`')
+    assert_parse("[Script, [InstVar, [Unquote, [Identifier, a]]]]", "@`a`")
+    assert_parse("[Script, [InstVarAssign, [Unquote, [Identifier, a]], [Fixnum, 1]]]", "@`a` = 1")
     assert_parse("[Script, [UnquoteAssign, [Identifier, a], [Identifier, b]]]", "`a` = b")
    end
 
@@ -519,5 +521,10 @@ EOF
      assert_parse("[Script, [Annotation, Foo, null]]", "$Foo")
      assert_parse("[Script, [Annotation, Foo, [Hash, [Assoc, [Symbol, value], [Constant, Bar]]]]]", "$Foo[Bar]")
      assert_parse("[Script, [Annotation, Foo, [Hash, [Assoc, [Symbol, foo], [Constant, Bar]]]]]", "$Foo[foo: Bar]")
+   end
+
+   def test_return
+     assert_parse("[Script, [Return, [Fixnum, -1]]]", "return -1")
+     assert_parse("[Script, [Return, [Fixnum, -1]]]", "return (-1)")
    end
 end

@@ -83,6 +83,8 @@ public enum Tokens {
   tDigit,
   tBacktick,
   tDollar,
+  tInstVarBacktick,
+  tClassVarBacktick,
   tUNKNOWN,
   tEOF
 }
