@@ -424,6 +424,10 @@ EOF
     assert_parse("[Script, [Float, -1.0]]", "-1.0")
     assert_parse("[Script, [Call, -@, [Identifier, a]]]", "-a")
     assert_parse("[Script, [Call, +@, [Identifier, a]]]", "+a")
+
+    assert_parse("[Script, [Call, +, [Call, -, [Identifier, a], [[Identifier, b]]], [[Identifier, c]]]]",
+                 "a - b + c")
+
     assert_fails("::A ||= 1")
     assert_fails("A::B ||= 1")
    end
@@ -515,6 +519,9 @@ EOF
     assert_parse("[Script, [InstVar, [Unquote, [Identifier, a]]]]", "@`a`")
     assert_parse("[Script, [InstVarAssign, [Unquote, [Identifier, a]], [Fixnum, 1]]]", "@`a` = 1")
     assert_parse("[Script, [UnquoteAssign, [Identifier, a], [Identifier, b]]]", "`a` = b")
+    assert_parse("[Script, [FCall, macro, [[Def, foo, [Arguments, null, null, null, null, null]," +
+                                               " [FCall, quote, [], [Iter, null, [Identifier, bar]]]]], null]]",
+                 "macro def foo; quote {bar}; end")
    end
 
    def test_annotation

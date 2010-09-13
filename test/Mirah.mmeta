@@ -57,7 +57,9 @@ parser MirahParser {
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
   comment: "#" (~"\n" _)*;
   start: ! prog=compstmt $EOF heredoc -> ^(Script prog);
-  compstmt: terms? a=(s=statement terms {s})*
+  compstmt scope(@cond)
+          : UNCOND
+            terms? a=(s=statement terms {s})*
             b=statement?
             {addToBlock(a, b)};
 
@@ -150,7 +152,7 @@ parser MirahParser {
   block_command: h=block_call (dot_or_colon op=operation2 a=command_args
                                h=-> ^(Call op h a))* {h};
   @Memo
-  primary scope(@BEG, @cond)
+  primary scope(@BEG)
          : h=value(primary2) ( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? h=-> ^(Call "call" h a iter)
                              | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? h=-> ^(Call op h a iter)
                              | (colons)=> colons (op=operation2 a=paren_args iter=brace_block? h=-> ^(Call op h a iter)
@@ -223,13 +225,13 @@ parser MirahParser {
   primary2_unless
          : isBEG2 $Unless! opt_nl cond=value(expr) Then body=compstmt tail=Else? $End
            -> ^(If cond tail body);
-  primary2_while
+  primary2_while scope(@cond)
          : isBEG2 $While! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
            -> ^(While cond body);
-  primary2_until
+  primary2_until scope(@cond)
          : isBEG2 $Until! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
            -> ^(Until cond body);
-  primary2_for
+  primary2_for scope(@cond)
          : $For! opt_nl var=variable $In opt_nl COND list=value(expr) Do body=compstmt $End
            -> ^(For var body list);
   primary2_class
@@ -244,9 +246,9 @@ parser MirahParser {
                     -> ^(Class n b s)
                   );
   primary2_def
-         : $Def! ( $Self! . dot_or_colon name=fname args=f_arglist body=bodystmt $End
+         : $Def! ( $Self! . dot_or_colon! name=fname! args=f_arglist! body=bodystmt! $End
                    -> ^(DefStatic name args body)
-                 | name=fname args=f_arglist body=bodystmt $End
+                 | name=fname! args=f_arglist! body=bodystmt! $End
                    -> ^(Def name args body)
                  );
   primary2_break: $Break -> ^(Break);
@@ -361,18 +363,18 @@ parser MirahParser {
         );
 
   arg2: &(. oneOf("+-!~")|primary)
-        a=arg3 t=(."||" opt_nl BEG b=arg2 a=-> ^(Or a b))* {a};
-  arg3: a=arg4 t=(."&&" opt_nl BEG b=arg3 a=-> ^(And a b))* {a};
-  arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl BEG b=arg4
+        a=arg3 t=(."||" opt_nl BEG b=arg3 a=-> ^(Or a b))* {a};
+  arg3: a=arg4 t=(."&&" opt_nl BEG b=arg4 a=-> ^(And a b))* {a};
+  arg4: a=arg5 t=(. op=("<=>"|">="|">"|"<="|"<"|"==="|"=="|"!="|"=~") opt_nl BEG b=arg5
                    a=-> ^(Call op a [b])
-                 |."!~" opt_nl BEG b=arg4 a=-> ^(Not ^(Call "=~" a [b])))* {a};
-  arg5: a=arg6 t=(."|" opt_nl BEG b=arg5 a=-> ^(Call "|" a [b])
-                 |."^" opt_nl BEG b=arg5 a=-> ^(Call "^" a [b]))* {a};
-  arg6: a=arg7 t=(."&" opt_nl BEG b=arg6 a=-> ^(Call "&" a [b]))* {a};
-  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl BEG b=arg7 a=-> ^(Call op a [b]))* {a};
-  arg8: a=arg9 t=(."+" opt_nl BEG b=arg8 a=-> ^(Call "+" a [b])
-                 |."-" opt_nl BEG b=arg8 a=-> ^(Call "-" a [b]))* {a};
-  arg9: a=arg10 t=(. oneOf("*%/") op={text(_pos-1, _pos)} opt_nl BEG b=arg9 a=-> ^(Call op a [b]))* {a};
+                 |."!~" opt_nl BEG b=arg5 a=-> ^(Not ^(Call "=~" a [b])))* {a};
+  arg5: a=arg6 t=(."|" opt_nl BEG b=arg6 a=-> ^(Call "|" a [b])
+                 |."^" opt_nl BEG b=arg6 a=-> ^(Call "^" a [b]))* {a};
+  arg6: a=arg7 t=(."&" opt_nl BEG b=arg7 a=-> ^(Call "&" a [b]))* {a};
+  arg7: a=arg8 t=(. op=("<<<"|"<<"|">>") opt_nl BEG b=arg8 a=-> ^(Call op a [b]))* {a};
+  arg8: a=arg9 t=(."+" opt_nl BEG b=arg9 a=-> ^(Call "+" a [b])
+                 |."-" opt_nl BEG b=arg9 a=-> ^(Call "-" a [b]))* {a};
+  arg9: a=arg10 t=(. oneOf("*%/") op={text(_pos-1, _pos)} opt_nl BEG b=arg10 a=-> ^(Call op a [b]))* {a};
   arg10: uminus BEG v=arg11 ( ?{Ast(v).name.equals('Fixnum')} -> ^(Fixnum negateFixnum(v))
                             | ?{Ast(v).name.equals('Float')} -> ^(Float negateFloat(v))
                             | -> ^(Call "-@" v)
@@ -947,9 +949,12 @@ parser MirahParser {
   }
 
   def lex {
-    #_enter("lex")
-    #_exit(
-    @lexer.lex(_pos)
-    #)
+    t = @lexer.lex(_pos)
+    _enter(t.text)
+    _exit(t)
+  }
+
+  def _memo_key(s:String) {
+    "#{s}:#{@BEG}:#{@cond}"
   }
 }
