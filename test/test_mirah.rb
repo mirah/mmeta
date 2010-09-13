@@ -522,6 +522,13 @@ EOF
     assert_parse("[Script, [FCall, macro, [[Def, foo, [Arguments, null, null, null, null, null]," +
                                                " [FCall, quote, [], [Iter, null, [Identifier, bar]]]]], null]]",
                  "macro def foo; quote {bar}; end")
+    assert_parse("[Script, [FCall, macro, [[Def, foo, [Arguments, null, null, null, null, null]," +
+                                               " [FCall, quote, [], [Iter, null, [Identifier, bar]]]]], null]]",
+                 "macro def foo; quote do bar end; end")
+    assert_parse("[Script, [FCall, macro, [[Def, foo, [Arguments, null, null, null, null, null]," +
+                                               " [Body, [Identifier, bar]," +
+                                                      " [FCall, quote, [], [Iter, null, [Identifier, baz]]]]]], null]]",
+                 "macro def foo; bar; quote do baz end; end")
    end
 
    def test_annotation

@@ -142,7 +142,8 @@ parser MirahParser {
            );
 
   # Node:command - call with or without block on end [!null]
-  command_call: block_command
+  command_call scope(@BEG)
+              : block_command
               | command
               | $Return BEG a=call_args -> ^(Return a+);
               # | $Break a=call_args -> ^(Break a+)
@@ -152,8 +153,7 @@ parser MirahParser {
   block_command: h=block_call (dot_or_colon op=operation2 a=command_args
                                h=-> ^(Call op h a))* {h};
   @Memo
-  primary scope(@BEG)
-         : h=value(primary2) ( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? h=-> ^(Call "call" h a iter)
+  primary: h=value(primary2) ( (dot_or_colon $LParen)=> dot_or_colon a=paren_args iter=brace_block? h=-> ^(Call "call" h a iter)
                              | (dot)=> dot op=operation2 a=opt_paren_args iter=brace_block? h=-> ^(Call op h a iter)
                              | (colons)=> colons (op=operation2 a=paren_args iter=brace_block? h=-> ^(Call op h a iter)
                                                   |b=constant ~(paren_args|call_args|$EQ..$OpAssign) h=-> ^(Colon2Const h b)
@@ -205,7 +205,7 @@ parser MirahParser {
   primary2_lbrack
          : isBEG . "[" opt_nl . "]" -> ^(ZArray)
          | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+);
-  primary2_lbrace
+  primary2_lbrace scope(@BEG)
          : $LBrace opt_nl ( ."}" -> ^(Hash)
                           | a=listOf(:assoc) trailer opt_nl . "}" -> ^(Hash a+)
                           );
@@ -234,7 +234,7 @@ parser MirahParser {
   primary2_for scope(@cond)
          : $For! opt_nl var=variable $In opt_nl COND list=value(expr) Do body=compstmt $End
            -> ^(For var body list);
-  primary2_class
+  primary2_class scope(@BEG)
          : $Class ( $LShift! BEG e=expr  # Should this just allow $Self?
                     term b=compstmt $End {b ||= @nil}
                     -> ^(SClass e b)
@@ -245,7 +245,7 @@ parser MirahParser {
                     $End {b ||= @nil}
                     -> ^(Class n b s)
                   );
-  primary2_def
+  primary2_def scope(@BEG)
          : $Def! ( $Self! . dot_or_colon! name=fname! args=f_arglist! body=bodystmt! $End
                    -> ^(DefStatic name args body)
                  | name=fname! args=f_arglist! body=bodystmt! $End
@@ -311,10 +311,11 @@ parser MirahParser {
 
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
-  brace_block: $LBrace opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
+  brace_block scope(@BEG)
+             : $LBrace opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
              | do_block;
 
-  do_block: ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
+  do_block scope(@BEG): ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
 
   # Do we need bv_decls?
   block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
@@ -491,7 +492,7 @@ parser MirahParser {
          | op
          );
 
-  annotation: $Dollar n=$CONSTANT
+  annotation scope(@BEG): $Dollar n=$CONSTANT
               arg=(($LBrack)=> $LBrack opt_nl ( e=expr opt_nl ."]" -> ^(Hash ^(Assoc ^(Symbol "value") e))
                                               | a=listOf(:assoc) trailer opt_nl . "]" -> ^(Hash a+)
                                               | ."]" {nil}
