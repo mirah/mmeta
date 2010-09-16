@@ -247,9 +247,11 @@ parser MirahParser {
                   );
   primary2_def scope(@BEG)
          : $Def! ( $Self! . dot_or_colon! name=fname! args=f_arglist! body=bodystmt! $End
-                   -> ^(DefStatic name args body)
+                   l={ [name] + args + [body] }
+                   -> ^(DefStatic l+)
                  | name=fname! args=f_arglist! body=bodystmt! $End
-                   -> ^(Def name args body)
+                   l={ [name] + args + [body] }
+                   -> ^(Def l+)
                  );
   primary2_break: $Break -> ^(Break);
   primary2_next: $Next -> ^(Next);
@@ -269,8 +271,8 @@ parser MirahParser {
                )
              | variable;
 
-  f_arglist: $LParen! opt_nl a=f_args opt_nl .")" BEG {a}
-           | a=f_args term {a};
+  f_arglist: $LParen! opt_nl a=f_args opt_nl .")" (.":" type=primary)? BEG {[a, type]}
+           | a=f_args (.":" type=primary)? term {[a, type]};
 
   @Memo
   comma: ."," opt_nl;

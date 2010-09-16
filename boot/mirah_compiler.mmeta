@@ -388,7 +388,7 @@ public parser MMetaCompiler {
         save = "_t"
       end
       "
-        def #{n}
+        def #{n}:Object
           _t = Object(nil); _start = _pos; _real_start = -1
           _enter('#{n}')
           #{find}
