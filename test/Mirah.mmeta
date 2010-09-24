@@ -257,7 +257,7 @@ parser MirahParser {
   primary2_next: $Next -> ^(Next);
   primary2_redo: $Redo -> ^(Redo);
   primary2_retry: $Retry -> ^(Retry);
-  primary2_return: $Return -> ^(Return ^(Nil));
+  primary2_return: $Return -> ^(Return);
   primary2_id: ($Colons)=> colon3 c=constant ~($EQ..$OpAssign) -> ^(Colon3 c)
              | ($Digit)=> numeric
              | ($Colon)=> symbol
@@ -429,7 +429,8 @@ parser MirahParser {
   uplus: isBEG2 . "+" opt_nl;
 
   splat: isBEG "*" ~sp v=arg_value s= -> ^(Splat v) { [s] };
-  args: l=rlistOf(:arg_value);
+  one_arg: v=arg_value ~(."=>") {v};
+  args: l=rlistOf(:one_arg);
       #  (comma s=splat {l+s} | { l })
       #| splat;
 
@@ -465,7 +466,7 @@ parser MirahParser {
          | ($IDENTIFIER)=> n=identifier -> ^(LocalAssign n)
          | ($Backtick)=> u=unquote n={List(u).get(1)} -> ^(UnquoteAssign n);
 
-  assoc: a=arg_value . "=>" opt_nl b=arg_value -> ^(Assoc a b)
+  assoc: a=arg_value . "=>"! opt_nl BEG b=arg_value -> ^(Assoc a b)
        | l=label BEG v=arg_value -> ^(Assoc l v);
 
   label: . n=identifier2 ":" ~":" opt_nl -> ^(Symbol n);

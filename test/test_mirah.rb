@@ -553,5 +553,10 @@ EOF
    def test_return
      assert_parse("[Script, [Return, [Fixnum, -1]]]", "return -1")
      assert_parse("[Script, [Return, [Fixnum, -1]]]", "return (-1)")
+     assert_parse("[Script, [Return]]", "return")
+   end
+
+   def test_call_assocs
+    assert_parse("[Script, [FCall, puts, [[Hash, [Assoc, [Symbol, a], [Symbol, b]]]], null]]", "puts :a => :b")
    end
 end
