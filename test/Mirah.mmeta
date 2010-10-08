@@ -235,13 +235,13 @@ parser MirahParser {
          : $For! opt_nl var=variable $In opt_nl COND list=value(expr) Do body=compstmt $End
            -> ^(For var body list);
   primary2_class scope(@BEG)
-         : $Class ( $LShift! BEG e=expr  # Should this just allow $Self?
-                    term b=compstmt $End {b ||= @nil}
+         : $Class! ( $LShift! BEG e=expr!  # Should this just allow $Self?
+                    term! b=compstmt! $End {b ||= @nil}
                     -> ^(SClass e b)
-                  | n=cpath s=superclass
-                    b=compstmt  # JRuby has bodystmt, but that doesn't make much
-                                # sense for mirah. Maybe rescuing exceptions
-                                # in the static initializer?
+                  | n=cpath! s=superclass!
+                    b=compstmt!  # JRuby has bodystmt, but that doesn't make much
+                                 # sense for mirah. Maybe rescuing exceptions
+                                 # in the static initializer?
                     $End {b ||= @nil}
                     -> ^(Class n b s)
                   );
