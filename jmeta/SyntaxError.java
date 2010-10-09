@@ -18,6 +18,9 @@ public class SyntaxError extends Error {
             else msg = "expected "+ BaseParser.ERROR.last;
 
             String s = string.substring(pos, Math.min(pos + 13, string.length()));
+            if (pos >= string.length()) {
+              s = "<EOF>";
+            }
             int n = s.indexOf('\n');
             if (n > 0) s = s.substring(0, n);
             msg = msg + " before '"+ s +"'";

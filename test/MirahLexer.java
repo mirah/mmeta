@@ -39,12 +39,41 @@ class MirahLexer {
           i = end;
         }
         break ws;
+      case '/':
+        if (i + 1 < end && chars[i + 1] == '*') {
+          i = skipBlockComment(i + 2);
+          break;
+        }
+        break ws;
       default:
         break ws;
       }
       i += 1;
     }
     return i;
+  }
+
+  private int skipBlockComment(int start) {
+    int i = start;
+    while (i < end) {
+      switch(chars[i]) {
+      case '\n':
+        parser.note_newline(i);
+        break;
+      case '*':
+        if (i + 1 < end && chars[i + 1] == '/') {
+          return i + 1;
+        }
+        break;
+      case '/':
+        if (i + 1 < end && chars[i + 1] == '*') {
+          i = skipBlockComment(i + 2);
+        }
+        break;
+     }
+      i += 1;
+    }
+    throw new jmeta.SyntaxError("*/", end, string, null);
   }
 
   private Tokens processFirstChar(int i) {

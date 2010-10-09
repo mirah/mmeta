@@ -55,7 +55,8 @@ parser MirahParser {
   sp: oneOf(" \t\f\r\v") | "\\" nl | comment;
   @Memo
   ws: (oneOf(" \t\f\r\v") | "\\" nl | comment)*;
-  comment: "#" (~"\n" _)*;
+  comment: "#" (~"\n" _)* | block_comment;
+  block_comment: "/*"! (block_comment | (~"*/" _))* "*/";
   start: ! prog=compstmt $EOF heredoc -> ^(Script prog);
   compstmt scope(@cond)
           : UNCOND

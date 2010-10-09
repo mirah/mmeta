@@ -559,4 +559,8 @@ EOF
    def test_call_assocs
     assert_parse("[Script, [FCall, puts, [[Hash, [Assoc, [Symbol, a], [Symbol, b]]]], null]]", "puts :a => :b")
    end
+
+   def test_block_comment
+     assert_parse("[Script, [Fixnum, 3]]", "/* A /* nested */ comment */3")
+   end
 end
