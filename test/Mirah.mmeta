@@ -109,7 +109,7 @@ parser MirahParser {
                 l=var_lhs op=op_assign r=command_call
                 b= -> ^(Call op gettable2(l) [r])
                 assign(l, b)
-              | ( l=lhs $EQ r=command_call assign(l, r)
+              | ( l=lhs $EQ opt_nl r=command_call assign(l, r)
                 | t=value(primary) (($LBrack)=> $LBrack opt_nl a=call_args? opt_nl ."]" op=op_assign v=command_call
                                                 op_attr_assign(t, "[]", a, op, v)
                                    | ($Colons)=> colons f=identifier op=op_assign v=command_call
@@ -301,13 +301,13 @@ parser MirahParser {
 
   f_arg: rlistOf(:f_arg_item);
 
-  f_opt: n=f_norm_arg $EQ! v=arg_value l={ n + [v] }-> ^(OptArg l+);
+  f_opt: n=f_norm_arg $EQ! opt_nl v=arg_value l={ n + [v] }-> ^(OptArg l+);
   f_optarg: rlistOf(:f_opt);
 
   f_rest_arg: ."*" n=f_norm_arg -> ^(RestArg n+)
             | ."*" -> ^(UnnamedRestArg);
 
-  f_block_arg: ."&" n=f_norm_arg $EQ !"nil" $Nil -> ^(OptBlockArg n+)
+  f_block_arg: ."&" n=f_norm_arg $EQ opt_nl !"nil" $Nil -> ^(OptBlockArg n+)
              | ."&"! n=f_norm_arg -> ^(BlockArg n+);
 
   block_arg: isBEG ."&" ~sp v=arg_value -> ^(BlockPass v);
@@ -315,7 +315,8 @@ parser MirahParser {
   # :brace_block - [!null]
   cmd_brace_block: brace_block;
   brace_block scope(@BEG)
-             : $LBrace opt_nl p=block_param? b=compstmt opt_nl ."}" -> ^(Iter p b)
+             : $LBrace opt_nl (p=block_param !"statement" b=compstmt opt_nl ."}"
+                              |p={nil} b=compstmt opt_nl ."}") -> ^(Iter p b)
              | do_block;
 
   do_block scope(@BEG): ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
@@ -352,7 +353,7 @@ parser MirahParser {
           l=var_lhs op=assignment_op r=arg
           b= -> ^(Call op gettable2(l) [r])
           assign(l, b)
-        | ( l=lhs $EQ r=maybe_rescue assign(l, r)
+        | ( l=lhs $EQ opt_nl r=maybe_rescue assign(l, r)
           | t=value(primary) ($LBrack opt_nl a=call_args? opt_nl ."]" op=assignment_op v=arg
                                op_attr_assign(t, "[]", a, op, v)
                              |colons constant assignment_op arg
@@ -447,8 +448,8 @@ parser MirahParser {
            | b=block_arg { [b] };
   command_args scope(@cond): ~$LParen COND call_args;
 
-  op_assign: t=$AndEq..$OpAssign {text=Token(t).text;text.substring(0, text.length - 1)};
-  assignment_op: op_assign | $EQ {"="};
+  op_assign: t=$AndEq..$OpAssign opt_nl {text=Token(t).text;text.substring(0, text.length - 1)};
+  assignment_op: op_assign | $EQ opt_nl {"="};
 
   @Memo
   lhs: ($Colons $CONSTANT)=> colon3 n=constant -> ^(ConstAssign ^(Colon3 n))

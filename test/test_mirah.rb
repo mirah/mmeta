@@ -563,4 +563,9 @@ EOF
    def test_block_comment
      assert_parse("[Script, [Fixnum, 3]]", "/* A /* nested */ comment */3")
    end
+
+   def test_assign_nl
+     assert_parse("[Script, [LocalAssign, a, [Fixnum, 1]]]", "a =\n   1")
+     assert_parse("[Script, [LocalAssign, html, [Call, +, [Local, html], [[String, ]]]]]", " html += \n ''")
+   end
 end
