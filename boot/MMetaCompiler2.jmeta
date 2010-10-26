@@ -155,7 +155,7 @@ public parser MMetaCompiler2 {
             if (x instanceof DoError) { err = ((DoError)x).msg; continue; }
             if (err != null) { b = w(b,
                 _, x, "\n",
-                _, "raise SyntaxError.new(\"", err, "\", _pos, _string, _list) if _t == __ERROR__\n"
+                _, "syntaxError(\"", err, "\") if _t == __ERROR__\n"
             ); } else { b = w(b,
                 _, x, "\n",
                 _, "break if _t == __ERROR__\n"

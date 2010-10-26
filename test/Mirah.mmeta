@@ -202,7 +202,7 @@ parser MirahParser {
            e
          };
   primary2_begin
-         : $Begin! b=bodystmt $End -> ^(Begin b);
+         : s=block_start $Begin! b=bodystmt verify_end(s)! $End -> ^(Begin b);
   primary2_lbrack
          : isBEG . "[" opt_nl . "]" -> ^(ZArray)
          | isBEG . "[" opt_nl a=args trailer opt_nl . "]" -> ^(Array a+);
@@ -221,36 +221,44 @@ parser MirahParser {
                                 | e=value(expr) opt_nl .")" -> ^(Not e)
                                 );
   primary2_if
-         : isBEG2 $If! opt_nl cond=value(expr) Then body=compstmt tail=if_tail $End
+         : isBEG2 s=block_start $If! opt_nl cond=value(expr)!
+           Then! body=compstmt! tail=if_tail verify_end(s)! $End
            -> ^(If cond body tail);
   primary2_unless
-         : isBEG2 $Unless! opt_nl cond=value(expr) Then body=compstmt tail=Else? $End
+         : isBEG2 s=block_start $Unless! opt_nl cond=value(expr)!
+           Then! body=compstmt! tail=Else? verify_end(s)! $End
            -> ^(If cond tail body);
   primary2_while scope(@cond)
-         : isBEG2 $While! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
+         : isBEG2 s=block_start $While! opt_nl COND cond=value(expr)!
+           Do! body=compstmt! verify_end(s)! $End {body ||= @nil}
            -> ^(While cond body);
   primary2_until scope(@cond)
-         : isBEG2 $Until! opt_nl COND cond=value(expr) Do body=compstmt $End {body ||= @nil}
+         : isBEG2 s=block_start $Until! opt_nl COND cond=value(expr)!
+           Do! body=compstmt! verify_end(s)! $End {body ||= @nil}
            -> ^(Until cond body);
   primary2_for scope(@cond)
-         : $For! opt_nl var=variable $In opt_nl COND list=value(expr) Do body=compstmt $End
+         : s=block_start $For! opt_nl var=variable! $In opt_nl COND!
+           list=value(expr)! Do! body=compstmt verify_end(s)! $End
            -> ^(For var body list);
   primary2_class scope(@BEG)
-         : $Class! ( $LShift! BEG e=expr!  # Should this just allow $Self?
-                    term! b=compstmt! $End {b ||= @nil}
-                    -> ^(SClass e b)
-                  | n=cpath! s=superclass!
-                    b=compstmt!  # JRuby has bodystmt, but that doesn't make much
-                                 # sense for mirah. Maybe rescuing exceptions
-                                 # in the static initializer?
-                    $End {b ||= @nil}
-                    -> ^(Class n b s)
-                  );
+         : sp=block_start
+           $Class! ( $LShift! BEG e=expr!  # Should this just allow $Self?
+                     term! b=compstmt! verify_end(sp)! $End {b ||= @nil}
+                     -> ^(SClass e b)
+                   | n=cpath! s=superclass!
+                     b=compstmt!  # JRuby has bodystmt, but that doesn't make much
+                                  # sense for mirah. Maybe rescuing exceptions
+                                  # in the static initializer?
+                     verify_end(sp)! $End {b ||= @nil}
+                     -> ^(Class n b s)
+                   );
   primary2_def scope(@BEG)
-         : $Def! ( $Self! . dot_or_colon! name=fname! args=f_arglist! body=bodystmt! $End
+         : s=block_start
+           $Def! ( $Self! . dot_or_colon! name=fname!
+                   args=f_arglist! body=bodystmt! verify_end(s)! $End
                    l={ [name] + args + [body] }
                    -> ^(DefStatic l+)
-                 | name=fname! args=f_arglist! body=bodystmt! $End
+                 | name=fname! args=f_arglist! body=bodystmt! verify_end(s)! $End
                    l={ [name] + args + [body] }
                    -> ^(Def l+)
                  );
@@ -319,7 +327,7 @@ parser MirahParser {
                               |p={nil} b=compstmt opt_nl ."}") -> ^(Iter p b)
              | do_block;
 
-  do_block scope(@BEG): ~?{@cond} $Do opt_nl p=block_param? b=compstmt $End -> ^(Iter p b);
+  do_block scope(@BEG): ~?{@cond} s=block_start $Do! opt_nl p=block_param?! b=compstmt verify_end(s)! $End -> ^(Iter p b);
 
   # Do we need bv_decls?
   block_param: ."|" opt_nl a=f_args opt_nl ."|" BEG {a};
@@ -680,6 +688,10 @@ parser MirahParser {
 
   assign_temp value=_ : -> ^(LocalAssign temp value);
 
+  block_start: . {pos};
+  verify_end start=_ : ( &$End . {verify_columns(start, pos);nil}
+                       | {nil});
+
   def self.parse_args(args:String[]) {
     argc = args.length
     if args[0].equals "-v"
@@ -962,5 +974,25 @@ parser MirahParser {
 
   def _memo_key(s:String) {
     "#{s}:#{@BEG}:#{@cond}"
+  }
+
+  def verify_columns(_start:Object, _end:Object) {
+    start_pos = Position(_start)
+    end_pos = Position(_end)
+    if end_pos.col != start_pos.col
+      if start_of_line(start_pos) && start_of_line(end_pos)
+        warn("Misaligned end", "closes block", start_pos.pos)
+      end
+    end
+  }
+
+  def start_of_line(position:Position) {
+    1.upto(position.col - 1) do |n|
+      c = _string.charAt(position.pos - n)
+      if " \t\f\r\v".indexOf(c) == -1
+        return false
+      end
+    end
+    return true
   }
 }

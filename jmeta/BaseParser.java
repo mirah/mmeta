@@ -132,6 +132,7 @@ public class BaseParser {
     private ArrayDeque<String> parseTree = new ArrayDeque<String>();
 
     public String filename = "<unknown>";
+    public ErrorHandler errorHandler = new DefaultErrorHandler();
     public int _pos = 0;
     public int _pos() { return _pos; }
     public void _pos_set(int pos) { _pos = pos; }
@@ -306,8 +307,22 @@ public class BaseParser {
           }
         }
 
-        if (_t==ERROR) throw new SyntaxError("", _pos, _string, _list);
+        if (_t==ERROR) {
+          syntaxError("");
+        }
         return _t;
+    }
+
+    public void syntaxError(String message) {
+      throw new SyntaxError(message, _pos, _string, _list);
+    }
+
+    public void warn(String message) {
+      errorHandler.warning(new String[] {message}, new Position[] {pos()});
+    }
+
+    public void warn(String message, String message2, int position2) {
+      errorHandler.warning(new String[] {message, message2}, new Position[] {pos(), pos(position2)});
     }
 
     /// start rule; override by creating a rule called 'start'

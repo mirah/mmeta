@@ -34,6 +34,37 @@ class Position; implements Serializable
     end
 end
 
+interface ErrorHandler do
+  def warning(messages:String[], positions:Position[]):void; end
+  # TODO
+  #def error(messages:String[], positions:Position[]):void; end
+end
+
+class DefaultErrorHandler; implements ErrorHandler
+  def formatMessage(messages:String[], positions:Position[], start:int)
+    out = StringBuilder.new
+    start.upto(messages.length - 1) do |i|
+      out.append(messages[i])
+      out.append(" at ")
+      p = positions[i]
+      if p
+        out.append(p.filename)
+        out.append(":")
+        out.append(p.line)
+        out.append(":")
+        out.append(p.col)
+        out.append(" ")
+      end
+    end
+    out.toString
+  end
+
+  def warning(messages, positions)
+    System.err.print("Warning: ")
+    System.err.println(formatMessage(messages, positions, 0))
+  end
+end
+
 class Ast < AbstractList; implements Cloneable
   def initialize(name:String)
     @name = name
