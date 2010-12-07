@@ -1,8 +1,8 @@
 require 'ant'
 require 'rake/testtask'
 
-if File.exist?('../duby/lib/mirah_task.rb')
-  $: << '../duby/lib'
+if File.exist?('../mirah/lib/mirah_task.rb')
+  $: << '../mirah/lib'
 end
 
 require 'mirah_task'
