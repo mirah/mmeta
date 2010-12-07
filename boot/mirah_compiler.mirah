@@ -648,7 +648,7 @@ super()
       break if _t == BaseParser.__ERROR__
       _t=(
         var = genvar
-        err = null
+        err = String(nil)
         xs = List(ts)
         b = "begin; _p#{var}=_pos; _t=nil; begin  # and\n"
         xs.each do |x|

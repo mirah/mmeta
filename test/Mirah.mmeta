@@ -859,7 +859,7 @@ parser MirahParser {
   }
 
   def stringConcat(strings:Object) {
-    result = nil
+    result = Object(nil)
     List(strings).each do |s|
       result = stringConcat(result, s)
     end
