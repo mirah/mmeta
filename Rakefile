@@ -21,6 +21,46 @@ task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
+file 'dist/mirah-parser.jar' =>
+  [
+    'build/mirah/impl/MirahParser.class',
+    'build/mirah/impl/Tokens.class',
+    'build/mirah/impl/MirahLexer.class'
+  ] do
+    
+  ant.jar :destfile => 'dist/mirah-parser.jar' do
+    fileset :dir => 'build', :includes => 'mirah/impl/*.class'
+    zipfileset :src => 'dist/jmeta-runtime.jar'
+    manifest do
+      attribute :name=>"Main-Class", :value=>"mirah.impl.MirahParser"
+    end
+  end
+end
+
+file 'build/mirah/impl/MirahParser.class' => 'build/mirah/impl/Mirah.mirah' do
+  mirahc('build/mirah/impl/Mirah.mirah',
+         :dir => 'build',
+         :dest => 'build',
+         :options => ['--classpath', 'dist/mmeta.jar'])
+        
+end
+
+file 'build/mirah/impl/Tokens.class' do
+  ant.javac :srcDir => 'test', :destDir => 'build', :debug => true, :includes => 'Tokens.java'
+end
+
+file 'build/mirah/impl/MirahLexer.class' do
+  ant.javac :srcDir => 'test', :destDir => 'build', :debug => true, :includes => 'MirahLexer.java' do
+    classpath :path => 'build'
+    classpath :path => 'dist/jmeta-runtime.jar'
+  end
+end
+
+file 'build/mirah/impl/Mirah.mirah' => ['dist/mmeta.jar', 'test/Mirah.mmeta'] do
+  ant.mkdir :dir => 'build/mirah/impl'
+  runjava 'dist/mmeta.jar', 'test/Mirah.mmeta', 'build/mirah/impl/Mirah.mirah'
+end
+
 file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
   ENV['BS_CHECK_CLASSES'] = 'true'
   mirahc('jmeta/ast.mirah', :dest => 'build/runtime')
