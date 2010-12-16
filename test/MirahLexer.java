@@ -3,7 +3,7 @@ package test;
 import jmeta.BaseParser;
 import jmeta.BaseParser.Token;
 
-class MirahLexer {
+public class MirahLexer {
   public MirahLexer(String string, char[] chars, BaseParser parser) {
     this.string = string;
     this.chars = chars;

@@ -21,12 +21,7 @@ task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
-file 'dist/mirah-parser.jar' =>
-  [
-    'build/mirah/impl/MirahParser.class',
-    'build/mirah/impl/Tokens.class',
-    'build/mirah/impl/MirahLexer.class'
-  ] do
+file 'dist/mirah-parser.jar' => ['build/mirah/impl/MirahParser.class'] do
     
   ant.jar :destfile => 'dist/mirah-parser.jar' do
     fileset :dir => 'build', :includes => 'mirah/impl/*.class'
@@ -37,7 +32,8 @@ file 'dist/mirah-parser.jar' =>
   end
 end
 
-file 'build/mirah/impl/MirahParser.class' => 'build/mirah/impl/Mirah.mirah' do
+file 'build/mirah/impl/MirahParser.class' => 
+    ['build/mirah/impl/Mirah.mirah', 'build/mirah/impl/Tokens.class', 'build/mirah/impl/MirahLexer.class'] do
   mirahc('build/mirah/impl/Mirah.mirah',
          :dir => 'build',
          :dest => 'build',
@@ -46,11 +42,27 @@ file 'build/mirah/impl/MirahParser.class' => 'build/mirah/impl/Mirah.mirah' do
 end
 
 file 'build/mirah/impl/Tokens.class' do
-  ant.javac :srcDir => 'test', :destDir => 'build', :debug => true, :includes => 'Tokens.java'
+  # This is kind of gross; it would be better to just have the package right all the time
+  File.open('test/Tokens.java') do |f|
+    File.open('build/Tokens.java', 'w') do |f2|
+      src = f.read
+      src.gsub!('package test;', 'package mirah.impl;');
+      f2.write(src)
+    end
+  end
+  ant.javac :srcDir => 'build', :destDir => 'build', :debug => true, :includes => 'Tokens.java'
 end
 
-file 'build/mirah/impl/MirahLexer.class' do
-  ant.javac :srcDir => 'test', :destDir => 'build', :debug => true, :includes => 'MirahLexer.java' do
+file 'build/mirah/impl/MirahLexer.class' => 'build/mirah/impl/Tokens.class' do
+  # This is kind of gross; it would be better to just have the package right all the time
+  File.open('test/MirahLexer.java') do |f|
+    File.open('build/MirahLexer.java', 'w') do |f2|
+      src = f.read
+      src.gsub!('package test;', 'package mirah.impl;');
+      f2.write(src)
+    end
+  end
+  ant.javac :srcDir => 'build', :destDir => 'build', :debug => true, :includes => 'MirahLexer.java' do
     classpath :path => 'build'
     classpath :path => 'dist/jmeta-runtime.jar'
   end
