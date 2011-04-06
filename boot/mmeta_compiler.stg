@@ -1,0 +1,158 @@
+rule_body(n, name, memo, recursion, locals, b) ::= <<
+
+def <n>:Object
+  _t = Object(nil); _start = _pos; _real_start = -1
+  _enter('<n>')
+  <if(memo)>
+  _t = _<if(!recursion)>s<endif>retrieve("<name>.<n>")
+  return _exit(_t) if (_t != BaseParser.__NOT_MEMOIZED__)
+  <endif>
+  <locals>
+  <if(recursion)>
+  begin
+    <rule_body2(n, name, memo, b)>
+  end while (_t==BaseParser.__GROW__)
+  <else>
+  <rule_body2(n, name, memo, b)>
+  <endif>
+  BaseParser.__ERROR__.last = "<n>" if (_t==BaseParser.__ERROR__)
+  return _t
+end
+
+>>
+
+rule_body2(n, name, memo, b) ::= <<
+<b>
+_t = _exit(<if(memo)>_memoize("<name>.<n>", _start, _t)<else>_t<endif>)
+>>
+
+literal_string(chars, string, var) ::= <<
+_t = BaseParser.__ERROR__
+<var> = _pos
+begin
+  break if <var> + <length(chars)> \> @chars.length
+  <chars:literal_string_char(var)>
+  _t = "<string>"; self._pos = <var>
+end while false
+
+>>
+
+literal_string_char(c, var) ::= <<
+break unless @chars[<var>] == <c>
+<var> += 1
+
+>>
+
+parser(name, superclass, init, xs, methods, rules) ::= <<
+class <name> \< <superclass>
+  def _init
+    <init>
+  end
+
+  <xs; separator="\n" >
+  <methods; separator="\n">
+
+  def _jump(r:String)
+    <rules:{r | return <r>() if (r == "<r>")}; separator="\n">
+    super(r)
+  end
+
+  def _has(r:String)
+    <rules:{r | return true if (r == "<r>")}; separator="\n">
+    super(r)
+  end
+end
+
+>>
+
+syn_pred(pred, t, e) ::= <<
+<pred>
+unless _t == BaseParser.__ERROR__
+  _t=nil
+  <t>
+  nil
+else
+  _t=nil
+  <e>
+  nil
+end
+
+>>
+
+token_range(first, last, range) ::= <<
+_tok = _lex()  # <first>..<last>
+_t = <range>.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__
+self._pos=_tok.pos if _t == BaseParser.__ERROR__
+
+>>
+
+token_literal(name, token) ::= <<
+# <name>
+build_token(<token>, _start, _real_start)
+
+>>
+
+or(exprs) ::= <<
+_t = BaseParser.__ERROR__
+begin  # or
+  <exprs:{x | <x><\n>break unless _t == BaseParser.__ERROR__}; separator="\n">
+end while false
+
+>>
+
+and(var, exprs, errors) ::= <<
+begin  # and
+  _p<var> = _pos; _t=nil
+  begin  # and (inner)
+    <exprs,errors: {ex, er | <and_expr(ex, er)>}; separator="\n">
+  end while false  # and (inner)
+  self._pos=_p<var> if (_t==BaseParser.__ERROR__)
+end  # and
+
+>>
+
+and_expr(expr, error) ::= <<
+<expr>
+<if(error)>
+raise SyntaxError.new("<error>", _pos, _string, _list) if _t == BaseParser.__ERROR__
+<else>
+break if _t == BaseParser.__ERROR__
+<endif>
+
+>>
+
+build_list(x, var) ::= <<
+as<var> = ArrayList.new
+<list_items(x, var)>
+
+>>
+
+build_list_no_empty(x, var) ::= <<
+as<var> = ArrayList.new
+<x>
+if (_t!=BaseParser.__ERROR__)  # plus
+  as<var>.add(_t)
+  <list_items(x, var)>
+end
+
+>>
+
+list_items(x, var) ::= <<
+while true  # star
+  <x>
+  if (_t == BaseParser.__ERROR__)
+    break
+  else
+    as<var>.add(_t)
+    nil
+  end
+end
+_t = as<var>
+
+>>
+
+save_to_var(name, expr) ::= <<
+<expr>
+name = _t
+
+>>

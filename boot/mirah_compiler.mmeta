@@ -1,6 +1,7 @@
 // copyright 2009 ActiveVideo; license: MIT; see license.txt
 package jmeta;
 import java.util.*;
+import org.stringtemplate.v4.*
 
 public parser MMetaCompiler {
     def self.main(args:String[]) {
@@ -44,7 +45,17 @@ public parser MMetaCompiler {
       @__genc = -1
       @left_recursion = Boolean.getBoolean("mmeta.left_recursion")
       @auto_memo = Boolean.getBoolean("mmeta.auto_memo")
+      @templates = STGroupFile.new(MMetaCompiler.class.getResource("mmeta_compiler.stg"), "utf-8", '<'.charAt(0), '>'.charAt(0))
     }
+
+    def render(name:String, args:Map) {
+      st = @templates.getInstanceOf(name)
+      args.keySet().each do |k|
+        st.add(String(k), args.get(k))
+      end
+      st.render
+    }
+
     def reset {
         @locals = ArrayList.new
         @methods = ArrayList.new
@@ -131,72 +142,52 @@ public parser MMetaCompiler {
     Pred expr=_ {
         "_t = (#{expr}) ? nil : BaseParser.__ERROR__;"
     };
-    SynPred! pred=trans indent t=trans e=trans {
-      "#{pred}\n#{outdent}" \
-      "unless _t == BaseParser.__ERROR__\n" \
-      "#{@_}_t=nil\n" \
-      "#{@_}#{t}\n" \
-      "#{@_}nil\n" \
-      "#{@_}else\n" \
-      "#{@_}_t=nil\n" \
-      "#{@_}#{e}\n" \
-      "#{@_}nil\n" \
-      "#{@_}end\n"
+    SynPred! pred=trans t=trans e=trans {
+      render('syn_pred', pred: pred, t:t, e:e)
     };
 
     Token name=_ {
-      "#{@_}_t = _lex(Tokens.t#{name})\n"
+      "_t = _lex(Tokens.t#{name})\n"
     };
     TokenRange first=_ last=_ {
-      "#{@_}_tok = _lex()  # #{first}..#{last}\n" \
-      "_t = #{lookup_range(first, last)}.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__\n" \
-      "self._pos=_tok.pos if _t == BaseParser.__ERROR__"
+      range = lookup_range(first, last)
+      render('token_range', first: first, last: last, range: range)
     };
     TLit name=_ {
-      " # #{name}\n#{@_}    build_token(#{lookup_token(name)}, _start, _real_start)"
+      token = Integer.valueOf(lookup_token(name))
+      render('token_literal', name: name, token: token)
     };
 
-    Or indent xs=(x=trans { "#{@_}#{x}\n#{@_}break unless _t == BaseParser.__ERROR__\n" }
-        )* { "_t=BaseParser.__ERROR__; begin  # or\n#{join(xs, "\n")}#{outdent}end while false\n" };
+    Or xs=trans* {
+      render('or', exprs: xs)
+    };
 
 
     And indent ts=trans+ {
         var = genvar
         err = null
         xs = List(ts)
-        b = "begin; _p#{var}=_pos; _t=nil; begin  # and\n"
+        nodes = ArrayList.new(xs.size)
+        errors = ArrayList.new(xs.size)
         xs.each do |x|
           if x.kind_of?(DoError)
             err = DoError(x).message
             next
           end
-          b = if err.nil?
-            "#{b}#{@_}#{x}\n#{@_}break if _t == BaseParser.__ERROR__\n"
-          else
-            "#{b}#{@_}#{x}\n#{@_}raise SyntaxError.new(\"#{err}\", _pos, _string, _list) if _t == BaseParser.__ERROR__\n"
-          end
+          nodes.add(x)
+          errors.add(err)
         end
-        outdent();
-        "#{b}#{@_}end while false; self._pos=_p#{var} if (_t==BaseParser.__ERROR__); end\n"
+        render('and', var: var, exprs: nodes, errors: errors)
     };
     And { "" };
 
     def makeMany(x:Object, many1:boolean) {
         var = genvar
-        b = "as#{var} = ArrayList.new\n"
-        if (many1)
-          b = "#{b}#{@_}#{x}\n#{@_}if (_t!=BaseParser.__ERROR__)\n#{indent}as#{var}.add(_t)\n"
+        if many1
+          render('build_list_no_empty', x: x, var: var)
+        else
+          render('build_list', x: x, var: var)
         end
-
-        b = "#{b}#{@_}while true  # many\n" +
-            "#{@_}#{x}\n" +
-            "#{@_}if (_t==BaseParser.__ERROR__); break; else as#{var}.add(_t);nil;end\n" +
-            "#{@_}end; _t=as#{var}\n"
-
-        if (many1)
-          b= "#{b}\n#{outdent}end\n"
-        end
-        b;
     }
     Many  indent x=trans outdent { makeMany(x, false) } ;
     Many1 indent x=trans outdent { makeMany(x, true)  } ;
@@ -237,28 +228,10 @@ public parser MMetaCompiler {
     };
 
     Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {
-        b = "\nclass #{@name} < #{@sname}\n  def _init;#{build_init};end\n" +
-            join(xs) + "\n" + join(@methods) + "\n" +
-            "  def _jump(r:string)\n"
-
-        @rules.each do |r|
-          b = "#{b}    return #{r}() if (r==\"#{r}\")\n"
-        end
-        b = b +
-            "    super(r)\n" +
-            "  end\n" +
-            "  def _has(r:string)\n"
-
-        @rules.each do |r|
-          b = b + "    return true if r==\"#{r}\"\n"
-        end
-
-        b = b +
-            "    super(r)\n" +
-            "  end\n" +
-            "end\n"
-        reset
-        b
+      init = build_init
+      b = render('parser', name: @name, superclass: @sname, init: init, xs:xs, methods:@methods, rules:@rules)
+      reset
+      b
     };
 
     Method  c=_ { "  #{c}\n" } ;
@@ -313,7 +286,12 @@ public parser MMetaCompiler {
         end
         i += 1
       end
-      return sb.toString.toCharArray
+      str = sb.toString
+      ints = int[str.length]
+      ints.length.times do |i|
+        ints[i] = str.charAt(i)
+      end
+      ints
     }
 
     def compile_literal_string(_s:Object) {
@@ -322,17 +300,7 @@ public parser MMetaCompiler {
         "_t = ''\n"
       else
         var = "_p#{genvar}"
-        sb = StringBuilder.new("#{@_}_t = BaseParser.__ERROR__\n")
-        sb.append("#{@_}#{var} = _pos\n")
-        sb.append("#{@_}begin\n")
-        sb.append("#{@_}  break if #{var} + #{s.length} > @chars.length\n")
-        s.each do |c|
-          sb.append("#{@_}  break unless @chars[#{var}] == #{c}\n")
-          sb.append("#{@_}  #{var} += 1\n")
-        end
-        sb.append("#{@_}  _t = \"#{_s}\"; self._pos = #{var}\n")
-        sb.append("#{@_}end while false\n")
-        sb.toString
+        render('literal_string', string:_s, chars: s, var: var)
       end
     }
 
@@ -370,34 +338,9 @@ public parser MMetaCompiler {
 
     def rule_body(n:Object, b:Object, force_memo:boolean) {
       @rules.add(n)
-      if @left_recursion
-        rfunc = "_retrieve"
-        loop_start = "    begin"
-        loop_end = "end while (_t==BaseParser.__GROW__); "
-      else
-        rfunc = "_sretrieve"
-        loop_start = ""
-        loop_end = ""
-      end
+      locals = localsAsInit
+      render('rule_body', n:n, name:@name, memo: Boolean.valueOf(force_memo || @auto_memo),
+             b:b, recursion:Boolean.valueOf(@left_recursion), locals:locals)
 
-      if force_memo || @auto_memo
-        find = "_t=#{rfunc}(\"#{@name}.#{n}\"); return _exit(_t) if (_t!=BaseParser.__NOT_MEMOIZED__)"
-        save = "_memoize(\"#{@name}.#{n}\", _start, _t)"
-      else
-        find = ""
-        save = "_t"
-      end
-      "
-        def #{n}:Object
-          _t = Object(nil); _start = _pos; _real_start = -1
-          _enter('#{n}')
-          #{find}
-          #{localsAsInit}#{loop_start}
-          #{b}
-          _t=_exit(#{save})
-          #{loop_end}BaseParser.__ERROR__.last=\"#{n}\" if (_t==BaseParser.__ERROR__)
-          return _t
-        end
-      "
     }
 }

@@ -1,9 +1,7 @@
 require 'ant'
 require 'rake/testtask'
 
-if File.exist?('../duby/lib/mirah_task.rb')
-  $:.unshift '../duby/lib'
-elsif File.exist?('../mirah/lib/mirah_task.rb')
+if File.exist?('../mirah/lib/mirah_task.rb')
   $:.unshift '../mirah/lib'
 end
 require 'mirah_task'
@@ -48,13 +46,17 @@ end
 file 'dist/mmeta.jar' => ['dist/jmeta.jar',
                           'boot/mirah_compiler.mirah'] do
   cp 'boot/mirah_compiler.mirah', 'build/boot/jmeta/'
+  cp 'boot/mmeta_compiler.stg', 'build/boot/jmeta/'
   mirahc('jmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'dist/jmeta.jar'])
+         :options => ['--classpath', 'dist/jmeta.jar:/Developer/ST-4.0.jar:/Developer/antlr-3.3/lib/antlr-3.3-complete.jar'])
   ant.jar :destfile=>'dist/mmeta.jar' do
     fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
     fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
+    fileset :dir=>"build/boot", :includes=>"jmeta/*.stg"
+    zipfileset :includes=>"**/*.class", :src=>"/Developer/ST-4.0.jar"
+    zipfileset :includes=>"**/*.class", :src=>"/Developer/antlr-3.3/lib/antlr-3.3-complete.jar"
     manifest do
       attribute :name=>"Main-Class", :value=>"jmeta.MMetaCompiler"
     end
