@@ -13,13 +13,29 @@ public parser MMetaCompiler {
       # if args.length > 1 && args[1].equals("--embed")
       #     embed = true
       # end
-      if args.length > 1
-        output_file = args[1]
-      else
-        output_file = args[0] + ".mirah"
+      options = {recursion: Boolean.valueOf(false), auto_memo: Boolean.valueOf(false)}
+      i = 0
+      while i < args.length && args[i].startsWith('--')
+        arg = args[i].substring(2)
+        if options.containsKey(arg)
+          options.put(arg, Boolean.valueOf(true))
+        else
+          puts "Unrecognized option --#{arg}."
+          puts "Supported options: #{options.keySet}"
+          System.exit(1)
+        end
+        i += 1
       end
-      input = Utils.readFile(args[0])
+      if args.length > i
+        output_file = args[i + 1]
+      else
+        output_file = args[i] + ".mirah"
+      end
+      input = Utils.readFile(args[i])
+
       compiler = MMetaCompiler.new
+      compiler.left_recursion = Boolean(options.get(:recursion)).booleanValue
+      compiler.auto_memo = Boolean(options.get(:auto_memo)).booleanValue
       # compiler.embedded = embed
       parser = JMetaParser.new
       BaseParser.tracing = false
@@ -46,6 +62,14 @@ public parser MMetaCompiler {
       @left_recursion = Boolean.getBoolean("mmeta.left_recursion")
       @auto_memo = Boolean.getBoolean("mmeta.auto_memo")
       @templates = STGroupFile.new(MMetaCompiler.class.getResource("mmeta_compiler.stg"), "utf-8", '<'.charAt(0), '>'.charAt(0))
+    }
+
+    def left_recursion_set(value:boolean) {
+      @left_recursion = value
+    }
+
+    def auto_memo_set(value:boolean) {
+      @auto_memo = value
     }
 
     def render(name:String, args:Map) {
@@ -81,9 +105,6 @@ public parser MMetaCompiler {
 
     def embedded_set(embedded:boolean) {@embeded = embedded}
 
-    def indent  { @_ = @_ + "  " }
-    def outdent { @_ = @_.substring(2) }
-
     def genvar { "" + (@__genc = @__genc + 1); }
 
     destruct: ! t=_ r=apply(t) end    { r } ;
@@ -107,7 +128,7 @@ public parser MMetaCompiler {
     };
     Set n=_ x=trans {
         addLocal(n);
-        "#{x}\n#{@_}#{n}=_t;"
+        render('save_to_var', name: n, expr: x)
     };
     Str s=_ { compile_literal_string(s) };
     Sym s=_ { "_t=_sym(\"#{s}\");" };
@@ -137,10 +158,10 @@ public parser MMetaCompiler {
 
     SAct expr=trans { "_t=#{expr};" };
     Act expr=_ {
-        "_t=(#{expr});"
+        render('action', expr: expr)
     };
     Pred expr=_ {
-        "_t = (#{expr}) ? nil : BaseParser.__ERROR__;"
+        render('predicate', expr: expr)
     };
     SynPred! pred=trans t=trans e=trans {
       render('syn_pred', pred: pred, t:t, e:e)
@@ -163,7 +184,7 @@ public parser MMetaCompiler {
     };
 
 
-    And indent ts=trans+ {
+    And ts=trans+ {
         var = genvar
         err = null
         xs = List(ts)
@@ -189,21 +210,20 @@ public parser MMetaCompiler {
           render('build_list', x: x, var: var)
         end
     }
-    Many  indent x=trans outdent { makeMany(x, false) } ;
-    Many1 indent x=trans outdent { makeMany(x, true)  } ;
+    Many x=trans { makeMany(x, false) } ;
+    Many1 x=trans { makeMany(x, true)  } ;
 
-    Opt indent x=trans outdent { "#{x}\n#{@_}_t=(_string.nil? ? \"\" : nil) if _t == BaseParser.__ERROR__;" };
+    Opt x=trans { render('opt', x: x) };
 
-    Not x=trans { "#{@_}#{x}\n_t = (_t == BaseParser.__ERROR__ ? Object(Boolean.valueOf(true)) : BaseParser.__ERROR__);"};
+    Not x=trans { render('not', x: x)};
 
     Peek x=trans {
       var = genvar
-      
-      "begin\n#{indent}_l#{var}=_pos\n#{@_}#{x}\n#{@_}self._pos=_l#{var} if (_t!=BaseParser.__ERROR__)\n#{outdent}end\n"
+      render('peek', x: x, var: var)
     };
 
-    List indent x=trans outdent {
-        "_t=_listBegin(); if (_t!=BaseParser.__ERROR__)\n#{@_}  #{x}\n#{@_}_listEnd(); end;"
+    List x=trans {
+        render('list', x: x)
     };
 
     MemoRule n=_ b=trans {
@@ -214,17 +234,14 @@ public parser MMetaCompiler {
       rule_body(n, b, false)
     };
 
-    Scope names=_ indent body=trans outdent {
-      pre = StringBuilder.new
-      post = StringBuilder.new
+    Scope names=_ body=trans {
+      simple_names = ArrayList.new
       l = Object[].cast(names)
       l.each do |_name|
         name = String(_name)
-        saved = "__saved_#{name.replace('@', '')}"
-        pre.append("#@_#{saved} = #{name}\n")
-        post.append("#@_  #{name} = #{saved}\n")
+        simple_names.add(name.replace('@', ''))
       end
-      "#{pre}#{@_}begin\n#{@_}#{body}\n#{@_}ensure\n#{post}#{@_}end\n"
+      render('scope', names: names, simple_names: simple_names, body: body)
     };
 
     Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {
@@ -234,6 +251,7 @@ public parser MMetaCompiler {
       b
     };
 
+    Method name=_ args=_ body=_ { render('method', name:name, args:args, body:body) };
     Method  c=_ { "  #{c}\n" } ;
     Field   c=_ { "  #{c}\n" } ;
     Package c=_ { @jpackage = String(c); ""; } ;

@@ -143,8 +143,7 @@ public parser JMetaParser {
     }
               | "def" . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")"| {""})! ."{" bs=cbraces* "}"
     {
-        String body = "def " + s + n + "("+ join(as) +");" + join(bs) + ";end";
-        return new Object[] {"Method", body};
+        return new Object[] {"Method", (String)s + n, join(as), join(bs)};
     }
     ;
     field     : q=qualifiers . t=name . n=name ."=" ! xs=(~";" _)* ";"

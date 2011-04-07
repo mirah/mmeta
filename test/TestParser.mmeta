@@ -1,0 +1,32 @@
+import jmeta.BaseParser.Token
+
+parser TestParser {
+
+  def init {
+    @lexer = MirahLexer.new(_string, @chars, self)
+  }
+
+  def lex {
+    t = @lexer.lex(_pos)
+    _enter(t.text)
+    _exit(t)
+  }
+
+  start: ! e=expr . end      { e };
+  expr: empty_string | syn_pred | token_literal | token_range | star
+      | plus | save | peek | not_rule | opt | pred | action;
+  empty_string: "empty_string"! . e="" -> ^(Empty e);
+  syn_pred: "syn_pred"! . e=(("p")=> _
+                            | # empty
+                            ) -> ^(SynPred e);
+  token_literal: "token"! . t=$IDENTIFIER id={Token(t).text} -> ^(Token id);
+  token_range: "range"! . t=($Unless..$Until) id={Token(t).text} -> ^(Token id);
+  star: "star"! . e="a"* -> ^(Star e);
+  plus: "plus"! . e="a"+ -> ^(Plus e);
+  save: "save"! . a=_ b=_ -> ^(Save b a);
+  peek: "peek"! . &"a" e="a" -> ^(Peek e);
+  not_rule: "not"! . ~"a" e=_ -> ^(Not e);
+  opt: "opt"! . e="a"? -> ^(Opt e);
+  pred: "pred"! . e="a"+ ?{"aaa".equals(join(e))} -> ^(Pred e);
+  action: "action"! . e="a"+ s= { join(e) } -> ^(Action s);
+}

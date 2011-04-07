@@ -153,6 +153,66 @@ _t = as<var>
 
 save_to_var(name, expr) ::= <<
 <expr>
-name = _t
+<name> = _t
+
+>>
+
+list(x) ::= <<
+_t = _listBegin()
+if (_t != BaseParser.__ERROR__)
+  <x>
+  _listEnd()
+end
+
+>>
+
+peek(x, var) ::= <<
+begin  # peek
+  _l<var> = _pos
+  <x>
+  self._pos = _l<var> if (_t != BaseParser.__ERROR__)
+end  # peek
+
+>>
+
+not(x) ::= <<
+<x>
+_t = (_t == BaseParser.__ERROR__ ? Object(Boolean.valueOf(true)) : BaseParser.__ERROR__)
+
+>>
+
+opt(x) ::= <<
+<x>
+_t=(_string.nil? ? "" : nil) if _t == BaseParser.__ERROR__
+
+>>
+
+predicate(expr) ::= <<
+_t = (<expr>) ? nil : BaseParser.__ERROR__
+
+>>
+
+action(expr) ::= <<
+_t = begin
+  <expr>
+end
+
+>>
+
+scope(names, simple_names, body) ::= <<
+<names, simple_names: {name, simple | __saved_<simple> = <name>}; separator="\n">
+begin  # scope
+  <body>
+ensure
+  <names, simple_names: {name, simple | <name> = __saved_<simple>}; separator="\n">
+end  # scope
+
+>>
+
+method(name, args, body) ::= <<
+def <name>(<args>)
+  <body>
+end
+
 
 >>

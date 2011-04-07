@@ -335,7 +335,7 @@ public class BaseParser {
     /// rule that requires a Symbol and runs the corresponding rule
     public Object apply() {
         Object r = _pop();
-        if (!(r instanceof String)) { ERROR.last = "apply() must receive a string got "+ r.getClass() + " " + r; return ERROR; }
+        if (!(r instanceof String)) { ERROR.last = "apply() must receive a string"; return ERROR; }
         try {
           return _jump((String) r);
         } catch (AssertionError e) {

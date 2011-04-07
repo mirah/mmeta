@@ -43,14 +43,18 @@ file 'dist/jmeta.jar' => ['dist/jmeta-runtime.jar',
   end
 end
 
-file 'dist/mmeta.jar' => ['dist/jmeta.jar',
-                          'boot/mirah_compiler.mirah'] do
+file 'build/boot/jmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah'] do
   cp 'boot/mirah_compiler.mirah', 'build/boot/jmeta/'
-  cp 'boot/mmeta_compiler.stg', 'build/boot/jmeta/'
   mirahc('jmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
          :options => ['--classpath', 'dist/jmeta.jar:/Developer/ST-4.0.jar:/Developer/antlr-3.3/lib/antlr-3.3-complete.jar'])
+end
+
+file 'dist/mmeta.jar' => ['dist/jmeta.jar',
+                          'build/boot/jmeta/MMetaCompiler.class',
+                          'boot/mmeta_compiler.stg'] do
+  cp 'boot/mmeta_compiler.stg', 'build/boot/jmeta/'
   ant.jar :destfile=>'dist/mmeta.jar' do
     fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
     fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
@@ -91,9 +95,9 @@ namespace :test do
       exit(1)
     end
   end
-  Rake::TestTask.new :mirah do |t|
+  Rake::TestTask.new :parser do |t|
     t.libs << 'build/test'
-    t.test_files = FileList['test/*.rb']
+    t.test_files = FileList['test/test_parser.rb']
   end
 end
 
@@ -106,18 +110,25 @@ Dir.glob('test/*.jmeta').each do |f|
   end
 end
 
-Dir.glob('test/*.mmeta').each do |f|
-  name = File.basename(f, '.mmeta')
+def test_grammar(name, *options)
   task(:'test:compile').enhance ["build/test/#{name}.mirah"]
-  file "build/test/#{name}.mirah" => [f, 'dist/mmeta.jar', 'build/test'] do
+  file "build/test/#{name}.mirah" => ["test/#{name}.mmeta", 'dist/mmeta.jar', 'build/test'] do
     cp "test/#{name}.mmeta", "build/test/"
-    runjava 'dist/mmeta.jar', "build/test/#{name}.mmeta", "build/test/#{name}.mirah"
+    args = ['dist/mmeta.jar', *options]
+    args.concat ["build/test/#{name}.mmeta", "build/test/#{name}.mirah"]
+    runjava  *args
   end
 end
 
+test_grammar('MirahCalculator', '--auto_memo', '--recursion')
+#test_grammar('Mirah')
+test_grammar('TestParser')
+
 # TODO: Set mcalc to use left recursion and auto memoization
-task :test => [:'test:calc', #:'test:mcalc',
-               :'test:mirah']
+task :test => [:'test:calc',
+               :'test:mcalc',
+               :'test:parser',
+               ]
 
 directory 'dist'
 directory 'build/test'
