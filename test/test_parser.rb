@@ -101,4 +101,8 @@ class TestParsing < Test::Unit::TestCase
     assert_parse('[Action, aa]', 'action aa')
     assert_parse('[Action, aaaaa]', 'action aaaaa')
   end
+
+  def test_scope
+    assert_parse('[Scope, aba]', 'scope')
+  end
 end

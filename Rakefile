@@ -15,8 +15,7 @@ task :clean do
 end
 
 task :bootstrap => ['dist/mmeta.jar'] do
-  runjava 'dist/jmeta.jar', 'boot/JMetaParser'
-  runjava 'dist/jmeta.jar', 'boot/JMetaCompiler'
+  runjava 'dist/mmeta.jar', '--auto_memo', 'boot/parser.mmeta', 'boot/parser.mirah'
   runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
@@ -43,15 +42,24 @@ file 'dist/jmeta.jar' => ['dist/jmeta-runtime.jar',
   end
 end
 
+file 'build/boot/jmeta/MMetaParser.class' => ['boot/parser.mirah'] do
+  cp 'boot/parser.mirah', 'build/boot/jmeta/'
+  mirahc('jmeta/parser.mirah',
+         :dir => 'build/boot',
+         :dest => 'build/boot',
+         :options => ['--classpath', 'dist/jmeta-runtime.jar'])
+end
+
 file 'build/boot/jmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah'] do
   cp 'boot/mirah_compiler.mirah', 'build/boot/jmeta/'
   mirahc('jmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'dist/jmeta.jar:/Developer/ST-4.0.jar:/Developer/antlr-3.3/lib/antlr-3.3-complete.jar'])
+         :options => ['--classpath', 'build/boot:dist/jmeta-runtime.jar:javalib/ST-4.0.jar:javalib/antlr-3.3-complete.jar'])
 end
 
-file 'dist/mmeta.jar' => ['dist/jmeta.jar',
+file 'dist/mmeta.jar' => ['dist/jmeta-runtime.jar',
+                          'build/boot/jmeta/MMetaParser.class',
                           'build/boot/jmeta/MMetaCompiler.class',
                           'boot/mmeta_compiler.stg'] do
   cp 'boot/mmeta_compiler.stg', 'build/boot/jmeta/'
@@ -59,8 +67,8 @@ file 'dist/mmeta.jar' => ['dist/jmeta.jar',
     fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
     fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
     fileset :dir=>"build/boot", :includes=>"jmeta/*.stg"
-    zipfileset :includes=>"**/*.class", :src=>"/Developer/ST-4.0.jar"
-    zipfileset :includes=>"**/*.class", :src=>"/Developer/antlr-3.3/lib/antlr-3.3-complete.jar"
+    zipfileset :includes=>"**/*.class", :src=>"javalib/ST-4.0.jar"
+    zipfileset :includes=>"org/antlr/runtime/**/*.class", :src=>"javalib/antlr-3.3-complete.jar"
     manifest do
       attribute :name=>"Main-Class", :value=>"jmeta.MMetaCompiler"
     end

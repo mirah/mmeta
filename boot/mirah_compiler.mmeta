@@ -7,7 +7,7 @@ public parser MMetaCompiler {
     def self.main(args:String[]) {
       returns void
       if args.length < 1
-          puts "JMetaParser <input> [output]"
+          puts "MMetaCompiler <input> [output]"
           System.exit(2)
       end
       # if args.length > 1 && args[1].equals("--embed")
@@ -37,7 +37,7 @@ public parser MMetaCompiler {
       compiler.left_recursion = Boolean(options.get(:recursion)).booleanValue
       compiler.auto_memo = Boolean(options.get(:auto_memo)).booleanValue
       # compiler.embedded = embed
-      parser = JMetaParser.new
+      parser = MMetaParser.new
       BaseParser.tracing = false
       ast = parser.parse(input)
       BaseParser.tracing = false
@@ -138,7 +138,7 @@ public parser MMetaCompiler {
         arg_str = if List(args).size == 1
           join(args, ", ")
         else
-          "ArrayList.new([#{join(args, ", ")}]).toArray"
+          "[#{join(args, ", ")}].toArray"
         end
         "_push(#{arg_str}); _t=super();"
     };
@@ -147,7 +147,7 @@ public parser MMetaCompiler {
         arg_str = if List(args).size == 1
           join(args, ", ")
         else
-          "ArrayList.new([#{join(args, ", ")}]).toArray"
+          "[#{join(args, ", ")}].toArray"
         end
         "_push(#{arg_str}); _t=self.#{rule}();"
     };
@@ -236,7 +236,11 @@ public parser MMetaCompiler {
 
     Scope names=_ body=trans {
       simple_names = ArrayList.new
-      l = Object[].cast(names)
+      l = if names.kind_of?(List)
+        List(names)
+      else
+        Arrays.asList(Object[].cast(names))
+      end
       l.each do |_name|
         name = String(_name)
         simple_names.add(name.replace('@', ''))
@@ -256,7 +260,7 @@ public parser MMetaCompiler {
     Field   c=_ { "  #{c}\n" } ;
     Package c=_ { @jpackage = String(c); ""; } ;
     Import  c=_ { c } ;
-    Class   q=_ d=_ c=_ { "#{d}\n#{c}\nend" } ;
+    Class   q=_ d=_ c=_ { "#{d}\n#{c}\n end" } ;
     Line  ws=_ x=trans { ws.toString + x.toString } ;
 
     File  xs=trans* {

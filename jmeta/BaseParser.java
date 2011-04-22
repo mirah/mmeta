@@ -44,11 +44,11 @@ public class BaseParser {
         return sb.toString();
     }
     public static void print_r(Object o, StringBuffer sb) {
-        if (o instanceof ArrayList) {
+        if (o instanceof List) {
             sb.append("[");
-            for (int i = 0; i < ((ArrayList)o).size(); i++) {
+            for (int i = 0; i < ((List)o).size(); i++) {
                 if (i > 0) sb.append(", ");
-                print_r(((ArrayList)o).get(i), sb);
+                print_r(((List)o).get(i), sb);
             }
             sb.append("]");
         } else if (o instanceof Object[]) {

@@ -1,0 +1,16 @@
+parser Left {
+    def self.main(args:String[]) {
+        parser = Left.new
+        #parser.tracing = true
+        puts parser.parse("1?-2!-3?")
+    }
+
+start: x=expr ! end { x } ;
+
+   x: x=expr "!" { "#{x}!" }
+    | x=expr "?" { "#{x}?" }
+    | expr ;
+expr: l=x "-" r=x { "#{l} - #{r}" }
+    | num ;
+ num: digit+;
+}

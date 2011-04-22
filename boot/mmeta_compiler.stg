@@ -140,12 +140,8 @@ end
 list_items(x, var) ::= <<
 while true  # star
   <x>
-  if (_t == BaseParser.__ERROR__)
-    break
-  else
-    as<var>.add(_t)
-    nil
-  end
+  break if (_t == BaseParser.__ERROR__)
+  as<var>.add(_t)
 end
 _t = as<var>
 
