@@ -1,11 +1,11 @@
 require 'test/unit'
 require 'java'
 
-$CLASSPATH << 'dist/jmeta-runtime.jar' << 'build'
+$CLASSPATH << 'dist/mmeta-runtime.jar' << 'build'
 
 class TestParsing < Test::Unit::TestCase
-  java_import 'jmeta.SyntaxError'
-  java_import 'jmeta.BaseParser'
+  java_import 'mmeta.SyntaxError'
+  java_import 'mmeta.BaseParser'
   java_import 'test.TestParser'
 
   def parse(text)

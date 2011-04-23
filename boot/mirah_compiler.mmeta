@@ -1,7 +1,18 @@
 // copyright 2009 ActiveVideo; license: MIT; see license.txt
-package jmeta;
+package mmeta;
 import java.util.*;
 import org.stringtemplate.v4.*
+
+
+public class DoError {
+  def initialize(m:Object)
+    @msg = String(m)
+  end
+
+  def message
+    @msg
+  end
+}
 
 public parser MMetaCompiler {
     def self.main(args:String[]) {
@@ -270,7 +281,7 @@ public parser MMetaCompiler {
         "import java.util.Date\n" +
         "import java.util.List\n" +
         "import java.util.EnumSet\n" +
-        (@embedded ? "" : "import jmeta.*;\n") + join(xs)
+        (@embedded ? "" : "import mmeta.*;\n") + join(xs)
     } ;
 
     start: ! r=destruct end           { r } ;

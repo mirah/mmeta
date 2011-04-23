@@ -1,4 +1,4 @@
-import jmeta.BaseParser.Token
+import mmeta.BaseParser.Token
 
 public class SomeClass {
   # Just make sure there's no alignment warnings.

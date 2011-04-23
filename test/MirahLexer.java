@@ -1,7 +1,7 @@
 package test;
 
-import jmeta.BaseParser;
-import jmeta.BaseParser.Token;
+import mmeta.BaseParser;
+import mmeta.BaseParser.Token;
 
 public class MirahLexer {
   public MirahLexer(String string, char[] chars, BaseParser parser) {
@@ -73,7 +73,7 @@ public class MirahLexer {
      }
       i += 1;
     }
-    throw new jmeta.SyntaxError("*/", end, string, null);
+    throw new mmeta.SyntaxError("*/", end, string, null);
   }
 
   private Tokens processFirstChar(int i) {

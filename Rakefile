@@ -19,83 +19,58 @@ task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
 end
 
-file 'dist/jmeta-runtime.jar' => Dir.glob('jmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
+file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
   ENV['BS_CHECK_CLASSES'] = 'true'
-  mirahc('jmeta/ast.mirah', :dest => 'build/runtime')
-  ant.javac :srcDir=>'jmeta', :destDir=>'build/runtime', :debug=>true
-  ant.jar :destfile=>'dist/jmeta-runtime.jar', :basedir=>'build/runtime'
+  mirahc('mmeta/ast.mirah', :dest => 'build/runtime')
+  ant.javac :srcDir=>'mmeta', :destDir=>'build/runtime', :debug=>true
+  ant.jar :destfile=>'dist/mmeta-runtime.jar', :basedir=>'build/runtime'
 end
 
-file 'dist/jmeta.jar' => ['dist/jmeta-runtime.jar',
-                          'boot/JMetaParser.java',
-                          'boot/JMetaCompiler.java',
-                          'build/boot/jmeta'] do
-  cp 'boot/JMetaParser.java', 'build/boot/jmeta/'
-  cp 'boot/JMetaCompiler.java', 'build/boot/jmeta/'
-  ant.javac :srcDir => 'build/boot', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
-  ant.jar :destfile=>'dist/jmeta.jar' do
-    fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
-    fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
-    manifest do
-      attribute :name=>"Main-Class", :value=>"jmeta.JMetaParser"
-    end
-  end
-end
-
-file 'build/boot/jmeta/MMetaParser.class' => ['boot/parser.mirah'] do
-  cp 'boot/parser.mirah', 'build/boot/jmeta/'
-  mirahc('jmeta/parser.mirah',
+file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar'] do
+  cp 'boot/parser.mirah', 'build/boot/mmeta/'
+  mirahc('mmeta/parser.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'dist/jmeta-runtime.jar'])
+         :options => ['--classpath', 'dist/mmeta-runtime.jar'])
 end
 
-file 'build/boot/jmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah'] do
-  cp 'boot/mirah_compiler.mirah', 'build/boot/jmeta/'
-  mirahc('jmeta/mirah_compiler.mirah',
+file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar'] do
+  cp 'boot/mirah_compiler.mirah', 'build/boot/mmeta/'
+  mirahc('mmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'build/boot:dist/jmeta-runtime.jar:javalib/ST-4.0.jar:javalib/antlr-3.3-complete.jar'])
+         :options => ['--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/ST-4.0.jar:javalib/antlr-3.3-complete.jar'])
 end
 
-file 'dist/mmeta.jar' => ['dist/jmeta-runtime.jar',
-                          'build/boot/jmeta/MMetaParser.class',
-                          'build/boot/jmeta/MMetaCompiler.class',
+file 'dist/mmeta.jar' => ['dist/mmeta-runtime.jar',
+                          'build/boot/mmeta/MMetaParser.class',
+                          'build/boot/mmeta/MMetaCompiler.class',
                           'boot/mmeta_compiler.stg'] do
-  cp 'boot/mmeta_compiler.stg', 'build/boot/jmeta/'
+  cp 'boot/mmeta_compiler.stg', 'build/boot/mmeta/'
   ant.jar :destfile=>'dist/mmeta.jar' do
-    fileset :dir=>"build/boot", :includes=>"jmeta/*.class"
-    fileset :dir=>"build/runtime", :includes=>"jmeta/*.class"
-    fileset :dir=>"build/boot", :includes=>"jmeta/*.stg"
+    fileset :dir=>"build/boot", :includes=>"mmeta/*.class"
+    fileset :dir=>"build/runtime", :includes=>"mmeta/*.class"
+    fileset :dir=>"build/boot", :includes=>"mmeta/*.stg"
     zipfileset :includes=>"**/*.class", :src=>"javalib/ST-4.0.jar"
     zipfileset :includes=>"org/antlr/runtime/**/*.class", :src=>"javalib/antlr-3.3-complete.jar"
     manifest do
-      attribute :name=>"Main-Class", :value=>"jmeta.MMetaCompiler"
+      attribute :name=>"Main-Class", :value=>"mmeta.MMetaCompiler"
     end
   end
 end
 
 namespace :test do
-  task :compile => ['dist/mmeta.jar', 'build/test'] do
+  task :compile => ['dist/mmeta.jar', 'build/test', 'build/test/MirahLexer.java']
+  file 'build/test/MirahLexer.java' => ['test/MirahLexer.java', 'test/Tokens.java'] do
     cp "test/MirahLexer.java", "build/test/"
     cp "test/Tokens.java", "build/test/"
-    ant.javac :srcDir => 'build/test', :classpath=>'dist/jmeta-runtime.jar', :debug=>true
+    ant.javac :srcDir => 'build/test', :classpath=>'dist/mmeta-runtime.jar', :debug=>true
     mirahc 'test', :dir=>'build', :dest=>'build',
-        :options=>['--classpath', "dist/jmeta-runtime.jar:#{Dir.pwd}/build"]
+        :options=>['--classpath', "dist/mmeta-runtime.jar:#{Dir.pwd}/build"]
   end
   task :calc => :'test:compile' do
-    runjava('Calculator', '4 * 3 - 2', :outputproperty=>'test.output',
-            :classpath=>'dist/jmeta-runtime.jar:build/test', :failonerror=>false)
-    if ant.properties['test.output'].to_s.strip == '10'
-      puts "Calculator passed"
-    else
-      puts "Expected calculator result 10, got #{ant.properties['test.output']}"
-      exit(1)
-    end
-  end
-  task :mcalc => :'test:compile' do
     runjava('test.Calculator2', '4 * 3 - 2', :outputproperty=>'test.output2',
-            :classpath=>'dist/jmeta-runtime.jar:build', :failonerror=>false)
+            :classpath=>'dist/mmeta-runtime.jar:build', :failonerror=>false)
     if ant.properties['test.output2'].to_s.strip == '10'
       puts "Mirah Calculator passed"
     else
@@ -109,17 +84,8 @@ namespace :test do
   end
 end
 
-Dir.glob('test/*.jmeta').each do |f|
-  name = File.basename(f, '.jmeta')
-  task(:'test:compile').enhance ["build/test/#{name}.java"]
-  file "build/test/#{name}.java" => [f, 'dist/jmeta.jar', 'build/test'] do
-    cp "test/#{name}.jmeta", "build/test/"
-    runjava 'dist/jmeta.jar', "build/test/#{name}"
-  end
-end
-
 def test_grammar(name, *options)
-  task(:'test:compile').enhance ["build/test/#{name}.mirah"]
+  task('build/test/MirahLexer.java').enhance ["build/test/#{name}.mirah"]
   file "build/test/#{name}.mirah" => ["test/#{name}.mmeta", 'dist/mmeta.jar', 'build/test'] do
     cp "test/#{name}.mmeta", "build/test/"
     args = ['dist/mmeta.jar', *options]
@@ -131,18 +97,18 @@ end
 test_grammar('MirahCalculator', '--auto_memo', '--recursion')
 #test_grammar('Mirah')
 test_grammar('TestParser')
+test_grammar('Java')
+test_grammar('Left', '--auto_memo', '--recursion')
 
-# TODO: Set mcalc to use left recursion and auto memoization
 task :test => [:'test:calc',
-               :'test:mcalc',
                :'test:parser',
                ]
 
 directory 'dist'
 directory 'build/test'
-directory 'build/jmeta'
+directory 'build/mmeta'
 directory 'build/runtime'
-directory 'build/boot/jmeta'
+directory 'build/boot/mmeta'
 
 def runjava(jar, *args)
   options = {:failonerror => true, :fork => true}

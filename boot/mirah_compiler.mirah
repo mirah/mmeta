@@ -4,11 +4,21 @@ import java.util.ArrayList
 import java.util.Date
 import java.util.List
 import java.util.EnumSet
-import jmeta.*;
+import mmeta.*;
 
 
 import java.util.*
 import org.stringtemplate.v4.*
+
+ class DoError
+  def initialize(m:Object)
+    @msg = String(m)
+  end
+
+  def message
+    @msg
+  end
+ end
 
 class MMetaCompiler < BaseParser
   def _init
@@ -1554,7 +1564,7 @@ class MMetaCompiler < BaseParser
                   "import java.util.Date\n" +
                   "import java.util.List\n" +
                   "import java.util.EnumSet\n" +
-                  (@embedded ? "" : "import jmeta.*;\n") + join(xs)
+                  (@embedded ? "" : "import mmeta.*;\n") + join(xs)
               
         end
 

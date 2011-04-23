@@ -1,5 +1,5 @@
-// copyright 2009 ActiveVideo; license: MIT; see license.txt
-package jmeta;
+# copyright 2009 ActiveVideo; license: MIT; see license.txt
+package mmeta;
 import java.util.*;
 
 public parser MMetaParser {
@@ -135,7 +135,7 @@ public parser MMetaParser {
                 ."{" rs=ruleMethod* ."}"
                 p={ [:Parser, p, n, sn] + rs } !
                 {
-                   if (Boolean.getBoolean("jmeta.optimize.debug"))
+                   if (Boolean.getBoolean("mmeta.optimize.debug"))
                      System.out.println("Before:\n" + BaseParser.print_r(p));
                    end
                    MMetaOptimizer.new().parse(p, "optimizeGrammar");
@@ -193,7 +193,7 @@ parser MMetaOptimizer {
     optimizeGrammar: ! :Parser p=_ n=_ sn=_ rs=optimizeRule* end
                      x={ [:Parser, p, n, sn] + rs }
                      {
-                       if (Boolean.getBoolean("jmeta.optimize.debug"))
+                       if (Boolean.getBoolean("mmeta.optimize.debug"))
                          System.out.println("Opt:\n" + BaseParser.print_r(x))
                        end
                        x

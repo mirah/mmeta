@@ -4,7 +4,7 @@ import java.util.ArrayList
 import java.util.Date
 import java.util.List
 import java.util.EnumSet
-import jmeta.*;
+import mmeta.*;
 
 
 import java.util.*
@@ -4281,7 +4281,7 @@ class MMetaParser < BaseParser
 
         _t = begin
 
-                             if (Boolean.getBoolean("jmeta.optimize.debug"))
+                             if (Boolean.getBoolean("mmeta.optimize.debug"))
                                System.out.println("Before:\n" + BaseParser.print_r(p));
                              end
                              MMetaOptimizer.new().parse(p, "optimizeGrammar");
@@ -5344,7 +5344,7 @@ class MMetaOptimizer < BaseParser
 
         _t = begin
 
-                                 if (Boolean.getBoolean("jmeta.optimize.debug"))
+                                 if (Boolean.getBoolean("mmeta.optimize.debug"))
                                    System.out.println("Opt:\n" + BaseParser.print_r(x))
                                  end
                                  x

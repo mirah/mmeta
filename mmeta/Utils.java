@@ -1,5 +1,5 @@
 // copyright 2009 ActiveVideo; license: MIT; see license.txt
-package jmeta;
+package mmeta;
 
 import java.util.*;
 import java.io.*;

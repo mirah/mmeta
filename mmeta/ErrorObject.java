@@ -1,7 +1,7 @@
 // copyright 2009 ActiveVideo; license: MIT; see license.txt
-package jmeta;
+package mmeta;
 
-public class ErrorObject {
+public class ErrorObject extends RuntimeException {
     public String last = "";
     public String toString() { return "ERROR.last: "+ last; }
 }
