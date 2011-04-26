@@ -1,0 +1,9 @@
+begin  # and
+  _p{{VAR}} = _pos; _t=nil
+  begin  # and (inner){{#EXPR}}
+    {{>EXPR}}{{#ERROR}}
+    raise SyntaxError.new("{{ERROR}}", _pos, _string, _list) if _t == BaseParser.__ERROR__{{/ERROR}}{{#NO_ERROR}}
+    break if _t == BaseParser.__ERROR__{{/NO_ERROR}}{{/EXPR}}
+  end while false  # and (inner)
+  self._pos=_p{{VAR}} if (_t==BaseParser.__ERROR__)
+end  # and

@@ -39,20 +39,18 @@ file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah', 'bu
   mirahc('mmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/ST-4.0.jar:javalib/antlr-3.3-complete.jar'])
+         :options => ['--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'])
 end
 
 file 'dist/mmeta.jar' => ['dist/mmeta-runtime.jar',
                           'build/boot/mmeta/MMetaParser.class',
-                          'build/boot/mmeta/MMetaCompiler.class',
-                          'boot/mmeta_compiler.stg'] do
-  cp 'boot/mmeta_compiler.stg', 'build/boot/mmeta/'
+                          'build/boot/mmeta/MMetaCompiler.class'] + Dir['boot/templates/*.xtm'] do
+  cp_r 'boot/templates', 'build/boot/mmeta/'
   ant.jar :destfile=>'dist/mmeta.jar' do
     fileset :dir=>"build/boot", :includes=>"mmeta/*.class"
     fileset :dir=>"build/runtime", :includes=>"mmeta/*.class"
-    fileset :dir=>"build/boot", :includes=>"mmeta/*.stg"
-    zipfileset :includes=>"**/*.class", :src=>"javalib/ST-4.0.jar"
-    zipfileset :includes=>"org/antlr/runtime/**/*.class", :src=>"javalib/antlr-3.3-complete.jar"
+    fileset :dir=>"build/boot", :includes=>"mmeta/templates/*.xtm"
+    zipfileset :includes=>"**/*.class", :src=>"javalib/hapax-2.3.5-autoindent.jar"
     manifest do
       attribute :name=>"Main-Class", :value=>"mmeta.MMetaCompiler"
     end

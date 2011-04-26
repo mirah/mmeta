@@ -1,0 +1,10 @@
+{{>PRED}}
+unless _t == BaseParser.__ERROR__
+  _t=nil
+  {{>BODY}}
+  nil
+else
+  _t=nil
+  {{>ELSE}}
+  nil
+end

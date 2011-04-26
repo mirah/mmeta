@@ -1,0 +1,2 @@
+# {{NAME}}
+build_token({{TOKEN}}, _start, _real_start)

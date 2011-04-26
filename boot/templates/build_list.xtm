@@ -1,0 +1,2 @@
+as{{VAR}} = ArrayList.new
+{{>LIST_ITEMS}}

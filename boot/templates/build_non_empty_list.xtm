@@ -1,0 +1,6 @@
+as{{VAR}} = ArrayList.new
+{{>EXPR}}
+if (_t!=BaseParser.__ERROR__)  # plus
+  as{{VAR}}.add(_t)
+  {{>LIST_ITEMS}}
+end

@@ -1,0 +1,6 @@
+while true  # star
+  {{>EXPR}}
+  break if (_t == BaseParser.__ERROR__)
+  as{{VAR}}.add(_t)
+end
+_t = as{{VAR}}

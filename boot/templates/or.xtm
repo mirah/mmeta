@@ -1,0 +1,5 @@
+_t = BaseParser.__ERROR__
+begin  # or{{#EXPR}}
+  {{>EXPR}}
+  break unless _t == BaseParser.__ERROR__{{/EXPR}}
+end while false

@@ -1,0 +1,6 @@
+{{#VARS}}__saved_{{SIMPLE_NAME}} = {{NAME}}
+{{/VARS}}begin  # scope
+  {{>BODY}}
+ensure{{#VARS}}
+  {{NAME}} = __saved_{{SIMPLE_NAME}}{{/VARS}}
+end  # scope

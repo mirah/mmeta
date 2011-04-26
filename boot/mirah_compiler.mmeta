@@ -1,7 +1,9 @@
 // copyright 2009 ActiveVideo; license: MIT; see license.txt
 package mmeta;
 import java.util.*;
-import org.stringtemplate.v4.*
+import hapax.TemplateDataDictionary
+import hapax.TemplateDictionary
+import hapax.TemplateResourceLoader
 
 
 public class DoError {
@@ -72,7 +74,7 @@ public parser MMetaCompiler {
       @__genc = -1
       @left_recursion = Boolean.getBoolean("mmeta.left_recursion")
       @auto_memo = Boolean.getBoolean("mmeta.auto_memo")
-      @templates = STGroupFile.new(MMetaCompiler.class.getResource("mmeta_compiler.stg"), "utf-8", '<'.charAt(0), '>'.charAt(0))
+      @templates = TemplateResourceLoader.create('mmeta/templates/')
     }
 
     def left_recursion_set(value:boolean) {
@@ -81,14 +83,6 @@ public parser MMetaCompiler {
 
     def auto_memo_set(value:boolean) {
       @auto_memo = value
-    }
-
-    def render(name:String, args:Map) {
-      st = @templates.getInstanceOf(name)
-      args.keySet().each do |k|
-        st.add(String(k), args.get(k))
-      end
-      st.render
     }
 
     def reset {
@@ -119,7 +113,7 @@ public parser MMetaCompiler {
     def genvar { "" + (@__genc = @__genc + 1); }
 
     destruct: ! t=_ r=apply(t) end    { r } ;
-    trans: [ r=destruct ]             { r } ;
+    trans scope(@dict): [ r=destruct ]             { r } ;
 
     HList ls=trans* {
       if List(ls).size == 0
@@ -139,7 +133,10 @@ public parser MMetaCompiler {
     };
     Set n=_ x=trans {
         addLocal(n);
-        render('save_to_var', name: n, expr: x)
+        add_dict
+        @dict.setVariable(:NAME, n.toString)
+        add_expr(:EXPR, x)
+        render(:save_to_var)
     };
     Str s=_ { compile_literal_string(s) };
     Sym s=_ { "_t=_sym(\"#{s}\");" };
@@ -169,13 +166,21 @@ public parser MMetaCompiler {
 
     SAct expr=trans { "_t=#{expr};" };
     Act expr=_ {
-        render('action', expr: expr)
+        add_dict
+        add_expr(:BODY, expr)
+        render(:action)
     };
     Pred expr=_ {
-        render('predicate', expr: expr)
+      add_dict
+      @dict.setVariable(:EXPR, expr.toString)
+      render('predicate')
     };
     SynPred! pred=trans t=trans e=trans {
-      render('syn_pred', pred: pred, t:t, e:e)
+      add_dict
+      add_expr(:PRED, pred)
+      add_expr(:BODY, t)
+      add_expr(:ELSE, e)
+      render('syn_pred')
     };
 
     Token name=_ {
@@ -183,58 +188,88 @@ public parser MMetaCompiler {
     };
     TokenRange first=_ last=_ {
       range = lookup_range(first, last)
-      render('token_range', first: first, last: last, range: range)
+      add_dict
+      @dict.setVariable(:FIRST, first.toString)
+      @dict.setVariable(:LAST, last.toString)
+      @dict.setVariable(:RANGE, range)
+      render('token_range')
     };
     TLit name=_ {
       token = Integer.valueOf(lookup_token(name))
-      render('token_literal', name: name, token: token)
+      add_dict
+      @dict.setVariable(:NAME, name.toString)
+      @dict.setVariable(:TOKEN, token.toString)
     };
 
     Or xs=trans* {
-      render('or', exprs: xs)
+      dict = add_dict
+      List(xs).each do |expr|
+        @dict = dict.addSection(:EXPR)
+        add_expr(:EXPR, expr)
+      end
+      render('or', dict)
     };
 
 
     And ts=trans+ {
-        var = genvar
-        err = null
-        xs = List(ts)
-        nodes = ArrayList.new(xs.size)
-        errors = ArrayList.new(xs.size)
-        xs.each do |x|
-          if x.kind_of?(DoError)
-            err = DoError(x).message
-            next
-          end
-          nodes.add(x)
-          errors.add(err)
+      dict = add_dict
+      @dict.setVariable(:VAR, genvar)
+      err = String(nil)
+      List(ts).each do |expr|
+        if expr.kind_of?(DoError)
+          err = DoError(expr).message
+          next
         end
-        render('and', var: var, exprs: nodes, errors: errors)
+        @dict = dict.addSection(:EXPR)
+        if err
+          @dict.setVariable(:ERROR, err)
+        else
+          @dict.showSection(:NO_ERROR)
+        end
+        add_expr(:EXPR, expr)
+      end
+      render('and', dict)
     };
     And { "" };
 
     def makeMany(x:Object, many1:boolean) {
-        var = genvar
-        if many1
-          render('build_list_no_empty', x: x, var: var)
-        else
-          render('build_list', x: x, var: var)
-        end
+      add_dict
+      @dict.setVariable(:VAR, genvar)
+      @dict.setVariable(:LIST_ITEMS, :list_items)
+      add_expr(:EXPR, x)
+      add_expr(:EXPR, x, @dict.addSection(:LIST_ITEMS))
+      if many1
+        render('build_non_empty_list')
+      else
+        render('build_list')
+      end
     }
     Many x=trans { makeMany(x, false) } ;
     Many1 x=trans { makeMany(x, true)  } ;
 
-    Opt x=trans { render('opt', x: x) };
+    Opt x=trans {
+      add_dict
+      add_expr(:EXPR, x)
+      render('opt')
+    };
 
-    Not x=trans { render('not', x: x)};
+    Not x=trans {
+      add_dict
+      add_expr(:EXPR, x)
+      render('not')
+    };
 
     Peek x=trans {
-      var = genvar
-      render('peek', x: x, var: var)
+      add_dict
+      @dict.setVariable(:VAR, genvar)
+      add_expr(:EXPR, x)
+      render('peek')
     };
 
     List x=trans {
-        render('list', x: x)
+      add_dict
+      add_expr(:EXPR, x)
+      render('list')
     };
 
     MemoRule n=_ b=trans {
@@ -246,7 +281,8 @@ public parser MMetaCompiler {
     };
 
     Scope names=_ body=trans {
-      simple_names = ArrayList.new
+      add_dict
+      add_expr(:BODY, body)
       l = if names.kind_of?(List)
         List(names)
       else
@@ -254,19 +290,37 @@ public parser MMetaCompiler {
       end
       l.each do |_name|
         name = String(_name)
-        simple_names.add(name.replace('@', ''))
+        dict = @dict.addSection(:VARS)
+        dict.setVariable(:NAME, name)
+        dict.setVariable(:SIMPLE_NAME, name.replace('@', ''))
       end
-      render('scope', names: names, simple_names: simple_names, body: body)
+      render('scope')
     };
 
-    Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s); nil } xs=trans* {
-      init = build_init
-      b = render('parser', name: @name, superclass: @sname, init: init, xs:xs, methods:@methods, rules:@rules)
+    Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s) } xs=trans* {
+      dict = add_dict
+      build_init
+      @rules.each do |name|
+        @dict.addSection(:RULE).setVariable(:RULE, String(name))
+      end
+      @dict.setVariable(:PARSER, @name)
+      @dict.setVariable(:SUPERCLASS, @sname)
+      List(xs).each do |expr|
+        @dict = dict.addSection(:BODY)
+        add_expr(:BODY, expr)
+      end
+      b = render('parser', dict)
       reset
       b
     };
 
-    Method name=_ args=_ body=_ { render('method', name:name, args:args, body:body) };
+    Method name=_ args=_ body=_ {
+      add_dict
+      @dict.setVariable(:NAME, name.toString)
+      @dict.setVariable(:ARGS, args.toString)
+      add_expr(:BODY, body)
+      render('method')
+    };
     Method  c=_ { "  #{c}\n" } ;
     Field   c=_ { "  #{c}\n" } ;
     Package c=_ { @jpackage = String(c); ""; } ;
@@ -332,8 +386,14 @@ public parser MMetaCompiler {
       if s.length == 0
         "_t = ''\n"
       else
-        var = "_p#{genvar}"
-        render('literal_string', string:_s, chars: s, var: var)
+        add_dict
+        @dict.setVariable(:VAR, "_p#{genvar}")
+        @dict.setVariable(:STRING, String(_s))
+        @dict.setVariable(:LENGTH, String.valueOf(s.length))
+        s.each do |i|
+          @dict.addSection(:CHAR).setVariable(:CHAR, String.valueOf(i))
+        end
+        render('string_literal')
       end
     }
 
@@ -358,22 +418,50 @@ public parser MMetaCompiler {
     }
 
     def build_init {
-      code = StringBuilder.new("\n@chars = _chars\nsuper()\n")
       @ranges.keySet.each do |key|
+        dict = @dict.addSection(:RANGE)
         tokens = String(key).split(",")
-        first = tokens[0]
-        last = tokens[1]
-        name = @ranges.get(key)
-        code.append("#{name} = EnumSet.range(Tokens.t#{first}, Tokens.t#{last})\n")
+        dict.setVariable(:FIRST, tokens[0])
+        dict.setVariable(:LAST, tokens[1])
+        dict.setVariable(:NAME, @ranges.get(key).toString)
       end
-      code.toString
     }
 
     def rule_body(n:Object, b:Object, force_memo:boolean) {
       @rules.add(n)
-      locals = localsAsInit
-      render('rule_body', n:n, name:@name, memo: Boolean.valueOf(force_memo || @auto_memo),
-             b:b, recursion:Boolean.valueOf(@left_recursion), locals:locals)
+      add_dict
+      @dict.setVariable(:RULE, n.toString)
+      @dict.setVariable(:MEMO_KEY, "#{@name}.#{n}")
+      @dict.setVariable(:LOCALS, localsAsInit)
+      @dict.setVariable(:RULE_BODY2, :rule_body_2)
+      add_expr(:BODY, b, @dict.addSection(:RULE_BODY2))
+      if force_memo || @auto_memo
+        @dict.showSection(:MEMO)
+      else
+        @dict.showSection(:UNMEMO)
+      end
+      if @left_recursion
+        @dict.showSection(:RECURSION)
+      else
+        @dict.showSection(:NO_RECURSION)
+      end
+      render('rule_body')
+    }
 
+    def render(template:String, dict:TemplateDataDictionary=nil) {
+      tpl = @templates.getTemplate(template)
+      dict ||= @dict
+      tpl.renderToString(dict)
+    }
+
+    def add_dict {
+      @dict = TemplateDataDictionary(TemplateDictionary.create)
+      # @dict.enableDebugAnnotations
+    }
+
+    def add_expr(name:String, expr:Object, dict:TemplateDataDictionary=nil) {
+      dict ||= @dict
+      dict.setVariable(name, :simple_expr)
+      dict.addSection(name).setVariable(:EXPR, expr.toString)
     }
 }

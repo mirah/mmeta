@@ -1,0 +1,21 @@
+class {{PARSER}} < {{SUPERCLASS}}
+  def _init
+    @chars = _chars
+    super(){{#RANGE}}
+    {{NAME}} = EnumSet.range(Tokens.t{{FIRST}}, Tokens.t{{LAST}}){{/RANGE}}
+  end
+
+{{#BODY}}
+  {{>BODY}}
+{{/BODY}}
+
+  def _jump(r:String){{#RULE}}
+    return {{RULE}}() if (r == "{{RULE}}"){{/RULE}}
+    super(r)
+  end
+
+  def _has(r:String){{#RULE}}
+    return true if (r == "{{RULE}}"){{/RULE}}
+    super(r)
+  end
+end

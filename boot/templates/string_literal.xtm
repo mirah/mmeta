@@ -1,0 +1,8 @@
+_t = BaseParser.__ERROR__
+{{VAR}} = _pos
+begin
+  break if {{VAR}} + {{LENGTH}} > @chars.length{{#CHAR}}
+  break unless @chars[{{VAR}}] == {{CHAR}}
+  {{VAR}} += 1{{/CHAR}}
+  _t = "{{STRING}}"; self._pos = {{VAR}}
+end while false

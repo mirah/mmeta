@@ -1,0 +1,14 @@
+
+def {{RULE}}:Object
+  _t = Object(nil); _start = _pos; _real_start = -1
+  _enter('{{RULE}}'){{#MEMO}}
+  _t = _{{#NO_RECURSION}}s{{/NO_RECURSION}}retrieve("{{MEMO_KEY}}")
+  return _exit(_t) if (_t != BaseParser.__NOT_MEMOIZED__){{/MEMO}}
+  {{LOCALS}}{{#RECURSION}}
+  begin
+    {{>RULE_BODY2}}
+  end while (_t==BaseParser.__GROW__){{/RECURSION}}{{#NO_RECURSION}}
+  {{>RULE_BODY2}}{{/NO_RECURSION}}
+  BaseParser.__ERROR__.last = "{{RULE}}" if (_t==BaseParser.__ERROR__)
+  return _t
+end

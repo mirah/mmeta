@@ -1,0 +1,3 @@
+_tok = _lex()  # {{FIRST}}..{{LAST}}
+_t = {{RANGE}}.contains(_tok.type) ? Object(_tok) : BaseParser.__ERROR__
+self._pos=_tok.pos if _t == BaseParser.__ERROR__
