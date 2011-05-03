@@ -1,3 +1,3 @@
-_t = begin
+begin
   {{>BODY}}
 end

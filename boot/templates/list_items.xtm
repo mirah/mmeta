@@ -1,6 +1,8 @@
-while true  # star
-  {{>EXPR}}
-  break if (_t == BaseParser.__ERROR__)
-  as{{VAR}}.add(_t)
-end
-_t = as{{VAR}}
+begin
+  while true do
+    _li = Object(
+      {{>EXPR}}
+    )
+    as{{VAR}}.add(_li)
+  end
+rescue RuleFailure; end

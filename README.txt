@@ -32,8 +32,6 @@ TODO: allow parsers with custom constructors.
 TODO: we could do without a runtime, by just creating inline classes, unless we 
       inherit a grammar.
 TODO: implement a more fancy memoization schema, including argument support.
-TODO: experiment with throwing exceptions, instead of returning ERROR, see what 
-      is faster/safer.
 TODO: change the syntax to be more mirah-like, or more OMeta like?
 TODO: Create multiple parser classes - string, list, generic, token, etc.
 
@@ -96,10 +94,11 @@ consequences:
 
 1. Methods must be surrounded with braces instead of using end.
 2. When writing semantic expressions, make sure to match the curly braces. Even
-inside strings. you may need to add a closing brace inside a comment, just to
-balance the braces.
-3. Every variable is of type `Object`, and every rule returns an `Object` you
-have to cast it, maybe even inspect it using `instanceof`.
+   inside strings. you may need to add a closing brace inside a comment, just to
+   balance the braces.
+3. Memoized rules return Object by default. You either need to cast the result
+   or you can use $Memo[String] to declare a rule should be memoized and return
+   a string.
 4. The parser throws a `SyntaxError` on error, which is not an `Exception`, but
 an `Error`, so take care to catch it correctly.
 

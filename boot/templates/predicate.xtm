@@ -1,1 +1,1 @@
-_t = ({{EXPR}}) ? nil : BaseParser.__ERROR__
+raise @error{{#EXPR}} unless ({{EXPR}}){{/EXPR}}

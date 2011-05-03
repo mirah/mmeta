@@ -1,8 +1,16 @@
+
 class {{PARSER}} < {{SUPERCLASS}}
   def _init
+    @error = RuleFailure.new
     @chars = _chars
     super(){{#RANGE}}
     {{NAME}} = EnumSet.range(Tokens.t{{FIRST}}, Tokens.t{{LAST}}){{/RANGE}}
+  end
+
+  def _error(expected:String)
+    throws RuleFailure
+    @error.last = expected
+    raise @error
   end
 
 {{#BODY}}

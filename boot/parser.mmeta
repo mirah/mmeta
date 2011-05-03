@@ -23,7 +23,7 @@ public parser MMetaParser {
 
     hex      : oneOf("0123456789abcdefABCDEF");
     echar         : //"\\u" u1=hex u2=hex u3=hex u4=hex                   { char(Integer.parseInt(""+u1+u2+u3+u4, 16)) }
-                  | "\\"! c=_                                           { "\\#{c}"; }
+                    "\\"! c=_                                           { "\\#{c}"; }
                   | _ ;
     tsString      : "\"" xs=(~"\"" echar)* "\""                         { join(xs) } ;
 
@@ -33,11 +33,11 @@ public parser MMetaParser {
 
     string        : s=tsString                                          { [:Str, s] } ;
     number        : sign=("-"|"+"|empty) ds=digit+                      { ["HLit", "#{sign}#{join(ds)}"] } ;
-    symbol        : ("'"!|":") (s=name
-                               | "'" c=(~"'" _)+ "'" s={join(c)}) { [:Sym, s] } ;
+    symbol        : ("'"|":") (s=name
+                              | "'" c=(~"'" _)+ "'" s={join(c)}) { [:Sym, s] } ;
     k keyword=_   : str(keyword) ~(nameFirst|digit)                     { keyword } ;
 
-    error         : "!" msg=(dollarstring|empty)                        { [:Error, msg] } ;
+    error         : ."!" msg=(dollarstring|empty) b=expr4               { [:Error, msg, b] } ;
     any           : "_"                                                 { [:App, :_any] } ;
     wsdot         : "."                                                 { [:Dot] } ;
 
@@ -51,7 +51,7 @@ public parser MMetaParser {
 
     rewrite_expr  : . n=name p=parens                                   { ["HLit", "#{n}#{p}"] }
                   | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, c]}
-                  | . "^(" . n=name c=rewrite_expr* . ")"               { [:Node, n, [:HList] + c]}
+                  | . "^(" . n=name cl=rewrite_expr* . ")"              { [:Node, n, [:HList] + cl]}
                   | ."$" n=name                                         { [:TLit, n] }
                   | .s=tsString                                         { [:HStr, s] }
                   | . n=name                                            { [:HLit, n] }
@@ -60,8 +60,8 @@ public parser MMetaParser {
     simplehost    : rs=simplehost1 ."+" .ls=simplehost                  { [:HConcat, rs, ls] }
                   | x=simplehost1                                       { x } ;
     simplehost1   : "[" xs=listOf(:simplehost,",") ."]"                 { [:HList] + xs }
-                  | .n=number                                           { n }
-                  | .("'"!|":") s=name                                  { [:HStr, s] }
+                  | .num=number                                         { num }
+                  | .("'"|":") s=name                                   { [:HStr, s] }
                   | .s=tsString                                         { [:HStr, s] }
                   | ."@" n=name                                         { ["HLit", "@#{n}"] }
                   | .n=name                                             { [:HLit, n] } ;
@@ -71,16 +71,16 @@ public parser MMetaParser {
                   | "{"!  xs=cbraces*    "}"                            { ["Act", "#{join(xs)}"] }
                   | "->"! s=rewrite_expr                                 { [:SAct, s] };
     semPred       : "?{"! xs=cbraces*    "}"                            { ["Pred", "#{join(xs)}"] } ;
-    synPred       : ."(" p=expr .")" ."=>" e=expr4 t=synPredTail        { [:SynPred, [:Peek, p], e, t] };
-    synPredTail   : ."|" (synPred | expr4)
-                  | {[:Pred, "false"]};
+    synPred       : ."(" p=expr .")" ."=>" e=expr4 (t=synPredTail       { [:SynPred, [:Peek, p], e, t] }
+                                                   |                    { [:SynPred, [:Peek, p], e] });
+    synPredTail   : ."|" (synPred | expr4);
     token         : "$" n=name                                          { n };
     tokens        : a=token (.".." . b=token                            { [:TokenRange, a, b]}
                             |                                           { [:Token, a]}
                             );
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
-    expr4         : xs=expr3*                                           { [:And] + xs  } ;
+    expr4         : xs=(error | expr3)*                                 { [:And] + xs  } ;
     optIter x=_   : "*"                                                 { [:Many,  x]  }
                   | "+"                                                 { [:Many1, x]  }
                   | "?"                                                 { [:Opt,   x]  }
@@ -90,14 +90,14 @@ public parser MMetaParser {
     expr2         : "~"! x=expr2                                        { [:Not,  x]   }
                   | "&"! x=expr1                                        { [:Peek, x]   }
                   | expr1 ;
-    expr1         : wsdot | any | error | semPred | semAction | application | tokens
+    expr1         : wsdot | any | semPred | semAction | application | tokens
                   | x=(k("null")|k("true")|k("false"))                  { [:HLit, x] }
                   | string | symbol | number
                   | "["! .x=expr ."]"                                    { [:List, x] }
                   | synPred
                   | "("! .x=expr .")"                                    { x } ;
 
-    rule          : ."@Memo" &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:MemoRule, n, [:Or, x] + xs ] }
+    rule          : ."$Memo" (."[".t=name."]")? &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:MemoRule, t, n, [:Or, x] + xs ] }
                   | &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
     rulePart rn=_ : .n=name ?{ n.equals(rn) } !
                     ( s=(.k("scope")"(" l=listOf(:varname, ",") .")") c=ruleStuff { [:Scope, l, c] }
@@ -121,7 +121,7 @@ public parser MMetaParser {
     {
         ["Import", "#{stm}#{join(xs)}"]
     } ;
-    jpackage  : stm=k("package") ! xs=(~";" _)* ";"
+    jpackage  : stm=k("package") ! xs=(~oneOf(";\n") _)* ";"?
     {
         ["Package", "#{stm}#{join(xs)}"]
     } ;
@@ -158,11 +158,12 @@ parser MMetaPass {
   }
     setChanged:  {@changed = true; nil;} ;
 
-    destruct: r=_ ?{ hasRule(r) } ! x=apply(r) end { x } ;
+    destruct: r=_ ?{ hasRule(r) } ! x=apply(r) end { x };
     trans   : [ x=destruct ]                             { x }
             | _                                                ;
-
+    $Memo
     Or       xs=trans*            { [:Or]  + xs   } ;
+    $Memo
     And      xs=trans*            { [:And] + xs   } ;
     Not      x=trans              { [:Not,   x]   } ;
     Many     x=trans              { [:Many,  x]   } ;
@@ -171,7 +172,9 @@ parser MMetaPass {
     List     x=trans              { [:List,  x]   } ;
     Set      n=_ x=trans          { [:Set,  n, x] } ;
     Rule     n=_ x=trans          { [:Rule, n, x] } ;
+    MemoRule t=_ n=_ x=trans          { [:MemoRule, t, n, x] } ;
     SynPred  xs=trans*            { [:SynPred] + xs };
+    Error    m=_ x=trans          { [:Error, m, x] };
 
     start: r=destruct end { r }
          | r=_ end        { r }
@@ -180,9 +183,9 @@ parser MMetaPass {
 
 parser MMetaAndOrOpt extends MMetaPass {
     And  x=trans end          setChanged { x } ;
-    And xs=transInside(:And)             { [:And] + xs } ;
+    And xs=transInside(:And) end         { [:And] + xs } ;
     Or   x=trans end          setChanged { x } ;
-    Or  xs=transInside(:Or)              { [:Or] + xs  } ;
+    Or  xs=transInside(:Or) end          { [:Or] + xs  } ;
 
     transInside s=_ : [ sym(s) xs=transInside(s) ] ys=transInside(s) setChanged { xs + ys  }
                     |   x=trans xs=transInside(s)                               { [x] + xs }

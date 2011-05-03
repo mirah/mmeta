@@ -1,2 +1,5 @@
-as{{VAR}} = ArrayList.new
-{{>LIST_ITEMS}}
+begin
+  as{{VAR}} = ArrayList.new
+  {{>LIST_ITEMS}}
+  as{{VAR}}
+end

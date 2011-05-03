@@ -1,10 +1,7 @@
-{{>PRED}}
-unless _t == BaseParser.__ERROR__
-  _t=nil
-  {{>BODY}}
-  nil
-else
-  _t=nil
+begin
+  {{>PRED}}{{#ELSE}}
+rescue RuleFailure
   {{>ELSE}}
-  nil
+else{{/ELSE}}
+  {{>BODY}}
 end

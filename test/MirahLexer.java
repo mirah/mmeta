@@ -73,7 +73,7 @@ public class MirahLexer {
      }
       i += 1;
     }
-    throw new mmeta.SyntaxError("*/", end, string, null);
+    throw new mmeta.SyntaxError("", "*/", end, string, null);
   }
 
   private Tokens processFirstChar(int i) {

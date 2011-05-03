@@ -6,6 +6,9 @@ import java.util.ArrayList
 import java.util.Collections
 import java.util.List
 
+class Grow < Exception
+end
+
 class Position; implements Serializable
     def initialize(filename:String, pos:int, linepos:int, line:int)
       # humans start counting at 1, not 0, thus we add 1 to line and column

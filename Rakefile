@@ -26,7 +26,7 @@ file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runt
   ant.jar :destfile=>'dist/mmeta-runtime.jar', :basedir=>'build/runtime'
 end
 
-file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar'] do
+file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
   cp 'boot/parser.mirah', 'build/boot/mmeta/'
   mirahc('mmeta/parser.mirah',
          :dir => 'build/boot',
@@ -34,7 +34,7 @@ file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/m
          :options => ['--classpath', 'dist/mmeta-runtime.jar'])
 end
 
-file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar'] do
+file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
   cp 'boot/mirah_compiler.mirah', 'build/boot/mmeta/'
   mirahc('mmeta/mirah_compiler.mirah',
          :dir => 'build/boot',
@@ -48,9 +48,9 @@ file 'dist/mmeta.jar' => ['dist/mmeta-runtime.jar',
   cp_r 'boot/templates', 'build/boot/mmeta/'
   ant.jar :destfile=>'dist/mmeta.jar' do
     fileset :dir=>"build/boot", :includes=>"mmeta/*.class"
-    fileset :dir=>"build/runtime", :includes=>"mmeta/*.class"
     fileset :dir=>"build/boot", :includes=>"mmeta/templates/*.xtm"
     zipfileset :includes=>"**/*.class", :src=>"javalib/hapax-2.3.5-autoindent.jar"
+    zipfileset :includes=>"mmeta/*.class", :src=>'dist/mmeta-runtime.jar'
     manifest do
       attribute :name=>"Main-Class", :value=>"mmeta.MMetaCompiler"
     end

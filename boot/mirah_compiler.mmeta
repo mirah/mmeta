@@ -6,16 +6,6 @@ import hapax.TemplateDictionary
 import hapax.TemplateResourceLoader
 
 
-public class DoError {
-  def initialize(m:Object)
-    @msg = String(m)
-  end
-
-  def message
-    @msg
-  end
-}
-
 public parser MMetaCompiler {
     def self.main(args:String[]) {
       returns void
@@ -95,17 +85,11 @@ public parser MMetaCompiler {
         s = String(n).intern
         @locals.add(s) unless @locals.contains(s)
     }
-    def localsAsArgs {
-      localsAsCall
-    }
-    def localsAsCall {
-        join(@locals, ",")
-    }
     def localsAsInit {
-      return '' if @locals.size == 0
-      res = join(@locals, " = ") + " = Object(nil)\n"
+      @locals.each do |local|
+        @dict.addSection(:LOCALS).setVariable(:LOCAL, local.toString)
+      end
       @locals.clear
-      res
     }
 
     def embedded_set(embedded:boolean) {@embeded = embedded}
@@ -128,8 +112,11 @@ public parser MMetaCompiler {
 
     Node n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
 
-    Error msg=_ {
-        DoError.new(msg);
+    Error msg=_ body=trans {
+      add_dict
+      @dict.setVariable(:MESSAGE, msg.toString)
+      add_expr(:BODY, body)
+      render(:syntax_error)
     };
     Set n=_ x=trans {
         addLocal(n);
@@ -139,32 +126,24 @@ public parser MMetaCompiler {
         render(:save_to_var)
     };
     Str s=_ { compile_literal_string(s) };
-    Sym s=_ { "_t=_sym(\"#{s}\");" };
+    Sym s=_ { "_sym(\"#{s}\")" };
 
 
     App :super rule=_ args=trans+ {
-        arg_str = if List(args).size == 1
-          join(args, ", ")
-        else
-          "[#{join(args, ", ")}].toArray"
-        end
-        "_push(#{arg_str}); _t=super();"
+        arg_str = "[#{join(args, ", ")}].toArray"
+        "begin\n  _push(#{arg_str})\n  super()\nend"
     };
-    App :super rule=_ { "_t=super();" };
+    App :super rule=_ { "super()" };
     App rule=_ args=trans+ {
-        arg_str = if List(args).size == 1
-          join(args, ", ")
-        else
-          "[#{join(args, ", ")}].toArray"
-        end
-        "_push(#{arg_str}); _t=self.#{rule}();"
+        arg_str = "[#{join(args, ", ")}].toArray"
+        "begin\n  _push(#{arg_str})\n  self.#{rule}()\nend"
     };
-    App rule=_ { "_t=self.#{rule}();" };
+    App rule=_ { "self.#{rule}()" };
 
     # Don't include whitespace at the beginning of the rule in it's position
-    Dot {"if _start == _pos;_t=ws();_real_start=_pos;nil;else;_t=ws();end;"};
+    Dot {"if _start == _pos;ws();_real_start=_pos;nil;else;ws();nil;end"};
 
-    SAct expr=trans { "_t=#{expr};" };
+    SAct expr=trans { "#{expr}" };
     Act expr=_ {
         add_dict
         add_expr(:BODY, expr)
@@ -172,19 +151,23 @@ public parser MMetaCompiler {
     };
     Pred expr=_ {
       add_dict
-      @dict.setVariable(:EXPR, expr.toString)
+      unless expr.nil? || "false".equals(expr.toString.trim)
+        @dict.setVariable(:EXPR, expr.toString)
+      end
       render('predicate')
     };
-    SynPred! pred=trans t=trans e=trans {
+    SynPred! pred=trans body=trans tail=(trans | end {nil}) {
       add_dict
       add_expr(:PRED, pred)
-      add_expr(:BODY, t)
-      add_expr(:ELSE, e)
+      add_expr(:BODY, body)
+      unless tail.nil?
+        add_expr(:ELSE, tail, @dict.addSection(:ELSE))
+      end
       render('syn_pred')
     };
 
     Token name=_ {
-      "_t = _lex(Tokens.t#{name})\n"
+      "_lex(Tokens.t#{name})"
     };
     TokenRange first=_ last=_ {
       range = lookup_range(first, last)
@@ -203,32 +186,32 @@ public parser MMetaCompiler {
 
     Or xs=trans* {
       dict = add_dict
-      List(xs).each do |expr|
-        @dict = dict.addSection(:EXPR)
-        add_expr(:EXPR, expr)
+      dict.setVariable(:ELSE, 'or')
+      exprs = List(xs)
+      if exprs.size == 0
+        ""
+      elsif exprs.size == 1
+        @dict.setVariable(:EXPR, exprs.get(0).toString)
+        render(:simple_expr)
+      else
+        0.upto(exprs.size - 2) do |i|
+          expr = exprs.get(i)
+          add_expr(:EXPR, expr)
+          @dict = @dict.addSection(:ELSE) unless i == (exprs.size - 2)
+        end
+        add_expr(:ELSE, exprs.get(exprs.size - 1))
+        render('or', dict)
       end
-      render('or', dict)
     };
 
-
     And ts=trans+ {
-      dict = add_dict
+      add_dict
       @dict.setVariable(:VAR, genvar)
       err = String(nil)
       List(ts).each do |expr|
-        if expr.kind_of?(DoError)
-          err = DoError(expr).message
-          next
-        end
-        @dict = dict.addSection(:EXPR)
-        if err
-          @dict.setVariable(:ERROR, err)
-        else
-          @dict.showSection(:NO_ERROR)
-        end
-        add_expr(:EXPR, expr)
+        add_expr(:EXPR, expr, @dict.addSection(:EXPR))
       end
-      render('and', dict)
+      render('and')
     };
     And { "" };
 
@@ -272,12 +255,12 @@ public parser MMetaCompiler {
       render('list')
     };
 
-    MemoRule n=_ b=trans {
-      rule_body(n, b, true)
+    MemoRule t=_ n=_ b=trans {
+      rule_body(n, b, true, t)
     };
 
     Rule n=_ b=trans {
-      rule_body(n, b, false)
+      rule_body(n, b, false, nil)
     };
 
     Scope names=_ body=trans {
@@ -324,7 +307,7 @@ public parser MMetaCompiler {
     Method  c=_ { "  #{c}\n" } ;
     Field   c=_ { "  #{c}\n" } ;
     Package c=_ { @jpackage = String(c); ""; } ;
-    Import  c=_ { c } ;
+    Import  c=_ { "#{c}\n" } ;
     Class   q=_ d=_ c=_ { "#{d}\n#{c}\n end" } ;
     Line  ws=_ x=trans { ws.toString + x.toString } ;
 
@@ -335,7 +318,7 @@ public parser MMetaCompiler {
         "import java.util.Date\n" +
         "import java.util.List\n" +
         "import java.util.EnumSet\n" +
-        (@embedded ? "" : "import mmeta.*;\n") + join(xs)
+        (@embedded ? "" : "import mmeta.*\n") + join(xs)
     } ;
 
     start: ! r=destruct end           { r } ;
@@ -384,7 +367,7 @@ public parser MMetaCompiler {
     def compile_literal_string(_s:Object) {
       s = unescape(String(_s))
       if s.length == 0
-        "_t = ''\n"
+        "''"
       else
         add_dict
         @dict.setVariable(:VAR, "_p#{genvar}")
@@ -427,31 +410,40 @@ public parser MMetaCompiler {
       end
     }
 
-    def rule_body(n:Object, b:Object, force_memo:boolean) {
+    def rule_body(n:Object, b:Object, force_memo:boolean, type:Object) {
       @rules.add(n)
       add_dict
       @dict.setVariable(:RULE, n.toString)
       @dict.setVariable(:MEMO_KEY, "#{@name}.#{n}")
-      @dict.setVariable(:LOCALS, localsAsInit)
-      @dict.setVariable(:RULE_BODY2, :rule_body_2)
-      add_expr(:BODY, b, @dict.addSection(:RULE_BODY2))
+      localsAsInit
       if force_memo || @auto_memo
         @dict.showSection(:MEMO)
+        @dict.setVariable(:CAST, type.toString) if type
+        if @left_recursion
+          @dict.showSection(:RECURSION)
+          @dict.setVariable(:MEMO_RULE, :memo_rule)
+          @dict.setVariable(:RULE_BODY, :recursive_rule)
+        else
+          @dict.showSection(:NO_RECURSION)
+          @dict.setVariable(:RULE_BODY, :memo_rule)
+        end
+        add_expr(:BODY, b, @dict.addSection(:RULE_BODY))
       else
         @dict.showSection(:UNMEMO)
-      end
-      if @left_recursion
-        @dict.showSection(:RECURSION)
-      else
         @dict.showSection(:NO_RECURSION)
+        add_expr(:RULE_BODY, b)
       end
-      render('rule_body')
+      render('rule')
     }
 
     def render(template:String, dict:TemplateDataDictionary=nil) {
       tpl = @templates.getTemplate(template)
       dict ||= @dict
-      tpl.renderToString(dict)
+      begin
+        tpl.renderToString(dict)
+      rescue StackOverflowError
+        raise "StackOverflowError caught"
+      end
     }
 
     def add_dict {
@@ -462,6 +454,6 @@ public parser MMetaCompiler {
     def add_expr(name:String, expr:Object, dict:TemplateDataDictionary=nil) {
       dict ||= @dict
       dict.setVariable(name, :simple_expr)
-      dict.addSection(name).setVariable(:EXPR, expr.toString)
+      dict.addSection(name).setVariable(:EXPR, expr.nil? ? "" : expr.toString)
     }
 }

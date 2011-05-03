@@ -1,5 +1,5 @@
-_t = BaseParser.__ERROR__
-begin  # or{{#EXPR}}
+begin
   {{>EXPR}}
-  break unless _t == BaseParser.__ERROR__{{/EXPR}}
-end while false
+rescue RuleFailure
+  {{>ELSE}}
+end

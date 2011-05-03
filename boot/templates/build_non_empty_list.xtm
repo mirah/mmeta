@@ -1,6 +1,6 @@
-as{{VAR}} = ArrayList.new
-{{>EXPR}}
-if (_t!=BaseParser.__ERROR__)  # plus
-  as{{VAR}}.add(_t)
+begin
+  as{{VAR}} = ArrayList.new
   {{>LIST_ITEMS}}
+  raise @error if as{{VAR}}.size == 0
+  as{{VAR}}
 end

@@ -1,2 +1,8 @@
-{{>EXPR}}
-_t = (_t == BaseParser.__ERROR__ ? Object(Boolean.valueOf(true)) : BaseParser.__ERROR__)
+begin  # not
+  {{>EXPR}}
+  nil
+rescue RuleFailure
+  nil  # expected
+else
+  raise @error
+end

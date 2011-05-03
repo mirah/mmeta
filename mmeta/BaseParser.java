@@ -86,13 +86,8 @@ public class BaseParser {
         String nodeName = parseTree.removeLast();
         if ("skip".equals(nodeName)) {
           // don't print anything
-        } else if (result == ERROR) {
+        } else if (result == ERROR || result instanceof RuleFailure) {
           System.out.println("  " + nodeName + "[color=red];");
-        } else if (result == GROW) {
-          String growNode = "g" + nodeCount++;
-          System.out.println("  " + growNode + "[label=\"GROW\",color=blue];");
-          System.out.println("  " + nodeName + " -- " + growNode + ";");
-          parseTree.addLast(nodeName);
         }
       }
       return result;
@@ -100,26 +95,34 @@ public class BaseParser {
 
     public static boolean tracing = false;
     public static boolean debug_parse_tree = false;
-    public Object trace(Object... args) {
-        if (! tracing) return args[args.length - 1];
-
-        for (int i = 0; i < args.length; i++) {
-            if (i > 0) System.out.print(" ");
-            System.out.print(print_r(args[i]));
+    public Object trace(Object... args) throws RuleFailure {
+        if (tracing) {
+            for (int i = 0; i < args.length; i++) {
+                if (i > 0) System.out.print(" ");
+                System.out.print(print_r(args[i]));
+            }
+            System.out.println(" at " + _pos);
         }
-        System.out.println(" at " + _pos);
-        return args[args.length - 1];
+        Object result = args[args.length - 1];
+        if (result == ERROR) {
+            return _error("");
+        } else if (result instanceof RuleFailure) {
+            throw (RuleFailure)result;
+        }
+        return result;
+    }
+
+    public Object _error(String expected) throws RuleFailure {
+        RuleFailure failure = new RuleFailure();
+        failure.last = expected;
+        throw failure;
     }
 
     /// Object indicating a parsing error
-    public static final ErrorObject ERROR = new ErrorObject();
-    public static final ErrorObject __ERROR__ = ERROR;
-    public static final Object LEFT_REC = new Object() { public String toString() { return "LEFT_REC"; }};
-    public static final Object __LEFT_REC__ = LEFT_REC;
-    public static final Object GROW = new Object() { public String toString() { return "GROW"; }};
-    public static final Object __GROW__ = GROW;
+    private static final Object ERROR = new Object() { public String toString() { return "ERROR"; }};
+    private static final Object LEFT_REC = new Object() { public String toString() { return "LEFT_REC"; }};
+    private static final Grow GROW = new Grow();
     public static final Memoize NOT_MEMOIZED = new Memoize(null, -1)  { public String toString() { return "not memoized"; }};
-    public static final Memoize __NOT_MEMOIZED__ = NOT_MEMOIZED;
 
     LinkedList<Object> args;
     State _stack = null;
@@ -145,7 +148,7 @@ public class BaseParser {
     public void _list_set(Object[] list) { _list = list; }
     private Token<?> cached_token = new Token(null, -1, -1, -1);
 
-    public Object _memoize(String s, int p, Object o) {
+    public Object _memoize(String s, int p, Object o) throws Grow, RuleFailure {
         HashMap<String, Memoize> map = _positions.get(p);
         if (map == null) {
             map = new HashMap<String, Memoize>();
@@ -170,7 +173,7 @@ public class BaseParser {
         }
         if (entry.seed != -1) {
             // if we are done growing, stop it, and remove this left recursion from stack
-            if (o == ERROR || _pos <= entry.pos) {
+            if (o instanceof RuleFailure || _pos <= entry.pos) {
                 _pos = entry.pos;
                 entry.seed = -1;
                 _lefts.pop();
@@ -185,7 +188,7 @@ public class BaseParser {
             entry.val = o;
             entry.pos = _pos;
             _pos = entry.seed;
-            return trace("<GROW:", s, _pos, o, GROW);
+            throw GROW;
         }
 
         // if we are in a left recursive situation, mark each evaluated rule
@@ -193,13 +196,15 @@ public class BaseParser {
 
         entry.pos = _pos;
         entry.val = o;
-        if (o == ERROR) _pos = p;
-        if (o == ERROR) return trace("< err:", s, o);
+        if (o instanceof RuleFailure) {
+            _pos = p;
+            return trace("< err:", s, o);
+        }
         return trace("<  ok:", s, o);
     }
 
     private HashMap<String, MemoStat> _stats = new HashMap<String, MemoStat>();
-    public Object _sretrieve(String s) {
+    public Object _sretrieve(String s) throws RuleFailure {
       // we cannot memoize in face of arguments
       if (! args.isEmpty()) return trace(">ntry:", s, NOT_MEMOIZED);
 
@@ -230,7 +235,7 @@ public class BaseParser {
       }
       return trace("> try:", s, NOT_MEMOIZED);
     }
-    public Object _retrieve(String s) {
+    public Object _retrieve(String s) throws RuleFailure {
       Object o = _sretrieve(s);
       if (o == NOT_MEMOIZED && args.isEmpty()) {
         HashMap<String, Memoize> map = _positions.get(_pos);
@@ -292,8 +297,12 @@ public class BaseParser {
         }
 
         Object _t = null;
-        if (r != null) _t = _jump(r.intern());
-        else _t = start();
+        try {
+            if (r != null) _t = _jump(r.intern());
+            else _t = start();
+        } catch (RuleFailure ex) {
+            syntaxError("", ex);
+        }
 
         if (debug_parse_tree) {
           System.out.println("}");
@@ -306,15 +315,11 @@ public class BaseParser {
                                );
           }
         }
-
-        if (_t==ERROR) {
-          syntaxError("");
-        }
         return _t;
     }
 
-    public void syntaxError(String message) {
-      throw new SyntaxError(message, _pos, _string, _list);
+    public void syntaxError(String message, RuleFailure ex) {
+      throw new SyntaxError(message, ex.last, _pos, _string, _list);
     }
 
     public void warn(String message) {
@@ -333,9 +338,9 @@ public class BaseParser {
     public Object _pop() { return args.pop(); }
 
     /// rule that requires a Symbol and runs the corresponding rule
-    public Object apply() {
+    public Object apply() throws RuleFailure {
         Object r = _pop();
-        if (!(r instanceof String)) { ERROR.last = "apply() must receive a string"; return ERROR; }
+        if (!(r instanceof String)) { return _error("apply() must receive a string"); }
         try {
           return _jump((String) r);
         } catch (AssertionError e) {
@@ -355,14 +360,14 @@ public class BaseParser {
     }
 
     /// str; next element must be given string
-    public Object str() {
+    public Object str() throws RuleFailure {
         Object r = _pop();
         if (!(r instanceof String)) throw new IllegalArgumentException("'str' must receive a String; not: "+ r);
         return _str((String) r);
     }
 
     /// sym; next element must be given symbol
-    public Object sym() {
+    public Object sym() throws RuleFailure {
         Object r = _pop();
         if (!(r instanceof String)) throw new IllegalArgumentException("'sym' must receive a String; not: "+ r);
         return _sym((String) r);
@@ -375,7 +380,7 @@ public class BaseParser {
     }
 
     /// '_'
-    public Object _any() {
+    public Object _any() throws RuleFailure {
         if (! args.isEmpty()) return args.pop();
 
         if (_string != null) {
@@ -386,11 +391,11 @@ public class BaseParser {
                 }
                 return c;
             } else {
-                return ERROR;
+                return _error("");
             }
         }
         if (_list != null)
-            if (_pos < _list.length) return _exit(_list[_pos++]); else return ERROR;
+            if (_pos < _list.length) return _exit(_list[_pos++]); else return _error("");
         throw new IllegalStateException("no _list nor _string??");
     }
 
@@ -425,21 +430,21 @@ public class BaseParser {
         return _pos - pos - 1;
     }
 
-    public Object build_node(String name, List<?> children, int start_pos, int end_pos) {
+    public Ast build_node(String name, List<?> children, int start_pos, int end_pos) {
         Ast node = new Ast(name, children);
         node.start_position_set(pos(start_pos));
         node.end_position_set(pos(end_pos));
         return node;
     }
 
-    public Object build_node(String name, int start_pos, int end_pos) {
+    public Ast build_node(String name, int start_pos, int end_pos) {
         Ast node = new Ast(name);
         node.start_position_set(pos(start_pos));
         node.end_position_set(pos(end_pos));
         return node;
     }
 
-    public Object build_node(String name, Object children, int start_pos, int end_pos) {
+    public Ast build_node(String name, Object children, int start_pos, int end_pos) {
         return build_node(name, (List<?>)children, start_pos, end_pos);
     }
 
@@ -447,10 +452,11 @@ public class BaseParser {
       return _string.substring(start, end);
     }
 
-    public char _cpeek() {
+    public char _cpeek() throws RuleFailure {
         if (_pos < _chars.length) {
             return _chars[_pos];
         } else {
+            _error("");
             return '\0';
         }
     }
@@ -462,52 +468,59 @@ public class BaseParser {
       return _string.substring(_pos - 1, _pos);
     }
 
-    public Object _peek() {
+    public Object _peek() throws RuleFailure {
       if (! args.isEmpty()) return args.peek();
         if (_string != null)
-            if (_pos < _chars.length) return _chars[_pos]; else return ERROR;
+            if (_pos < _chars.length) return _chars[_pos]; else return _error("");
         if (_list != null)
-            if (_pos < _list.length) return _list[_pos]; else return ERROR;
+            if (_pos < _list.length) return _list[_pos]; else return _error("");
         throw new IllegalStateException("no _list nor _string??");
     }
 
     /// returns success if the end of file or list has been reached; same as `end: ~_;`
-    public Object end() {
-        if (_peek() == ERROR) return null; else { ERROR.last = "end of input"; return ERROR; }
+    public Object end() throws RuleFailure {
+        try {
+            _peek();
+        } catch (RuleFailure ex) {
+            return null;
+        }
+        return _error("end of input");
     }
 
-    public Object __end__() {
+    public Object __end__() throws RuleFailure {
       return end();
     }
 
     /// '.' parses as much whitespace as possible, override the default `ws: nl | sp;` rule to define the whitespace
-    public Object ws() {
+    public Object ws() throws RuleFailure {
         if (_string == null)
             throw new IllegalStateException("whitespace ('.') is only available in string parsing");
         do {
-            if (_peek() == ERROR) return null;
-            char c = _cpeek();
-            if (!(c == ' ' || c == '\t' || c == '\f' || c == '\n' | c == '\r')) { break; }
-            _any();
+            try {
+                char c = _cpeek();
+                if (!(c == ' ' || c == '\t' || c == '\f' || c == '\n' | c == '\r')) { break; }
+                _any();
+            } catch (RuleFailure ex) {
+                return null;
+            }
         } while (true);
         return null;
     }
 
     /// '"..."' parses a string when string parsing
-    public Object _str(String s) {
+    public Object _str(String s) throws RuleFailure {
         trace("try _str():", s);
         _enter("'"+s+"'");
         if (_string == null)
             throw new IllegalStateException("string ('\""+ s +"\"') is only available in string parsing");
         int p = _pos;
         if (p + s.length() > _chars.length) {
-          ERROR.last = "'"+ s +"'";
-          return ERROR;
+            return _error("'"+ s +"'");
         }
         for (int i = 0; i < s.length(); i++) {
           if (s.charAt(i) != _chars[p++]) {
-            ERROR.last = "'"+ s +"'";
-            return _exit(ERROR);
+              _exit(ERROR);
+              return _error("'"+ s +"'");
           }
         }
         _pos = p;
@@ -515,49 +528,51 @@ public class BaseParser {
     }
 
     /// '`...' parses a string based symbols when list parsing (e.g. `new Object[] { "hello" }` matches `[ `hello ]`)
-    public Object _sym(String s) {
+    public Object _sym(String s) throws RuleFailure {
         trace("try _sym():", s);
         if (_list == null && args.isEmpty())
             throw new IllegalStateException("symbol ('`"+ s +"') is only available in list parsing");
-        if (_peek().equals(s)) { _any(); return trace(" ok _sym():",s); } else return ERROR;
+        if (_peek().equals(s)) { _any(); return trace(" ok _sym():",s); } else return _error("");
     }
 
-    public Object _char(String s) {
+    public Object _char(String s) throws RuleFailure {
         _enter("["+s+"]");
         if (_string == null)
             throw new IllegalStateException("charRange is only available in string parsing");
-        if (_peek() == ERROR) return _exit(ERROR);
         char c = _cpeek();
         if (s.indexOf(c) >= 0) { _any(); return _exit(c); }
-        return _exit(ERROR);
+        _exit(ERROR);
+        return _error("");
     }
 
     /// nl; parses a single newline
-    public Object nl() {
+    public Object nl() throws RuleFailure {
         return _char("\n\r");
     }
 
     /// sp; parses a single space
-    public Object sp() {
+    public Object sp() throws RuleFailure {
         return _char(" \t\f");
     }
 
-    public Object _charRange(char b, char e) {
+    public Object _charRange(char b, char e) throws RuleFailure {
         if (_string == null)
             throw new IllegalStateException("charRange is only available in string parsing");
-        if (_peek() == ERROR) return ERROR;
         char c = _cpeek();
         if (c >= b && c <= e) { _any(); return c; }
-        return ERROR;
+        return _error("");
     }
 
     /// default rule that parses [0-9]
-    public Object digit() { return _charRange('0', '9'); }
+    public Object digit() throws RuleFailure { return _charRange('0', '9'); }
 
     /// default rule that parses [a-zA-Z]
-    public Object letter() {
-        Object r = _charRange('a', 'z'); if (r != ERROR) return r;
-        return _charRange('A', 'Z');
+    public Object letter() throws RuleFailure {
+        try {
+            return _charRange('a', 'z');
+        } catch (RuleFailure ex) {
+            return _charRange('A', 'Z');
+        }
     }
 
     public String join(Object ls) { return join(ls, ""); }
@@ -583,19 +598,28 @@ public class BaseParser {
     }
 
     // helper that concatenates two Arrays or Lists together
-    public Object concat(Object ls, Object rs) {
+    public List concat(Object ls, Object rs) {
+        if (ls == null) {
+            if (rs == null) {
+                return Collections.emptyList();
+            }
+            ls = rs;
+            rs = null;
+        }
         if (ls instanceof Object[]) {
             Object[] la = (Object[]) ls;
             if (rs instanceof Object[]) {
                 Object[] ra = (Object[]) rs;
                 Object na = Arrays.copyOf(la, la.length + ra.length);
                 System.arraycopy(rs, 0, na, la.length, ra.length);
-                return na;
+                return Arrays.asList(na);
             } else if (rs instanceof List) {
                 List ra = (List<?>) rs;
                 Object[] na = Arrays.copyOf(la, la.length + ra.size());
                 for (int i = 0; i < ra.size(); i++) na[la.length + i] = ra.get(i);
-                return na;
+                return Arrays.asList(na);
+            } else if (rs == null) {
+                return Arrays.asList(la);
             }
         } else if (ls instanceof List) {
             List<?> la = (List<?>) ls;
@@ -609,13 +633,15 @@ public class BaseParser {
                 ArrayList na = new ArrayList(la);
                 na.addAll(ra);
                 return na;
+            } else if (rs == null) {
+                return la;
             }
          }
 
         throw new IllegalArgumentException("'concat' must receive two Lists or Object[]s. Got " + ls.getClass().getName() + " and " + rs.getClass().getName());
     }
 
-    public Object _listBegin() {
+    public Object _listBegin() throws RuleFailure {
         if (_list == null)
             throw new IllegalStateException("list ('[ ... ]') operations only available in list parsing");
 
@@ -628,7 +654,7 @@ public class BaseParser {
         } else if (ls instanceof List) {
             list = new ArrayList((List)ls).toArray();
         } else {
-            return ERROR;
+            return _error("");
         }
         _any();
 
@@ -646,7 +672,7 @@ public class BaseParser {
         _stack = _stack.prev;
     }
 
-    public Object _jump(String r) {
+    public Object _jump(String r) throws RuleFailure {
         throw new AssertionError("_jump: rule '"+ r +"' does not exist; or not properly implemented yet");
     }
     public boolean _has(String r) {
@@ -660,28 +686,28 @@ public class BaseParser {
       return new Token<T>(type, pos, start, endpos);
     }
     
-    public Object lex() {
-      return ERROR;
+    public Object lex() throws RuleFailure {
+      return _error("");
     }
     
-    public Object _lex(Enum<?> type) {
+    public Object _lex(Enum<?> type) throws RuleFailure {
       _lex();
       if (cached_token.type == type) {
         return cached_token;
       } else {
         _pos = cached_token.pos;
-        return ERROR;
+        return _error("");
       }
     }
 
-    public Token _lex() {
+    public Token _lex() throws RuleFailure {
       if (cached_token.pos != _pos) {
-        Object t = lex();
-        if (t == ERROR) {
-          cached_token = new Token(null, _pos, _pos, _pos);
-        } else {
-          cached_token = (Token<?>)t;
-        }
+          try {
+              Object t = lex();
+              cached_token = (Token<?>)t;
+          } catch (RuleFailure ex) {
+              cached_token = new Token(null, _pos, _pos, _pos);
+          }
       }
       _pos = cached_token.endpos;
       return cached_token;

@@ -1,0 +1,5 @@
+begin
+  {{>BODY}}
+rescue RuleFailure
+  raise SyntaxError.new("{{MESSAGE}}", @error.last, _pos, _string, _list)
+end

@@ -24,6 +24,11 @@ class TestParsing < Test::Unit::TestCase
     end
   end
 
+  def test_eof
+    assert_parse('[EOF]', '')
+    assert_fails('a')
+  end
+
   def test_empty_string
     assert_parse('[Empty, ]', 'empty_string')
     assert_parse('[Empty, ]', 'empty_string ')
@@ -31,8 +36,9 @@ class TestParsing < Test::Unit::TestCase
 
   def test_syn_pred
     assert_parse('[SynPred, p]', 'syn_pred p')
-    assert_parse('[SynPred, null]', 'syn_pred')
+    assert_parse('[SynPred, x]', 'syn_pred x')
     assert_fails('syn_pred q')
+    assert_fails('syn_pred pp')
   end
 
   def test_token_literal
@@ -104,5 +110,23 @@ class TestParsing < Test::Unit::TestCase
 
   def test_scope
     assert_parse('[Scope, aba]', 'scope')
+  end
+
+  def test_empty_last
+    assert_parse('[ELast, x]', 'elast x')
+    assert_parse('[ELast, y]', 'elast y')
+    assert_parse('[ELast, null]', 'elast')
+  end
+
+  def test_squote
+    assert_parse('[SQuote]', "'")
+  end
+
+  def test_dquote
+    assert_parse('[DQuote]', '"')
+  end
+
+  def test_memo
+    assert_parse('[Memo, memo]', 'memo')
   end
 end

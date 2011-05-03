@@ -1,0 +1,6 @@
+begin
+  {{>MEMO_RULE}}
+  break
+rescue Grow
+end while true
+{{#CAST}}{{CAST}}({{/CAST}}_t{{#CAST}}){{/CAST}}

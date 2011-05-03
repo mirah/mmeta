@@ -1,0 +1,10 @@
+begin
+  _t2 = (
+    {{>BODY}}
+  )
+  _t = Object(_t2)
+rescue RuleFailure => ex
+  {{#CAST}}{{CAST}}({{/CAST}}_t = _memoize("{{MEMO_KEY}}", _start, ex){{#CAST}}){{/CAST}}
+else
+  {{#CAST}}{{CAST}}({{/CAST}}_t = _memoize("{{MEMO_KEY}}", _start, _t){{#CAST}}){{/CAST}}
+end

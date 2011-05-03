@@ -1,5 +1,5 @@
 begin  # peek
   _l{{VAR}} = _pos
   {{>EXPR}}
-  self._pos = _l{{VAR}} if (_t != BaseParser.__ERROR__)
-end  # peek
+  self._pos = _l{{VAR}}
+end

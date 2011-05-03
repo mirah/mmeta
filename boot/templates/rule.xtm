@@ -1,0 +1,20 @@
+
+def {{RULE}}
+  throws RuleFailure{{#DEBUG}}
+  _enter('{{RULE}}'){{/DEBUG}}
+  begin
+    _start = _pos; _real_start = -1{{#LOCALS}}
+    {{LOCAL}} = nil{{/LOCALS}}{{#DEBUG}}
+    _e = ({{/DEBUG}}{{#MEMO}}
+    _t = _{{#NO_RECURSION}}s{{/NO_RECURSION}}retrieve("{{MEMO_KEY}}")
+    return {{#CAST}}{{CAST}}({{/CAST}}{{#DEBUG}}_exit({{/DEBUG}}_t{{#DEBUG}}){{/DEBUG}}{{#CAST}}){{/CAST}} unless _t == BaseParser.NOT_MEMOIZED{{/MEMO}}
+    {{>RULE_BODY}}{{#DEBUG}}
+    )
+    _exit(_e)
+    _e{{/DEBUG}}
+  rescue RuleFailure => ex
+    ex.last = '{{RULE}}'{{#DEBUG}}
+    _exit(ex){{/DEBUG}}
+    raise ex
+  end   
+end
