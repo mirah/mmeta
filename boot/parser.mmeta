@@ -96,13 +96,14 @@ public parser MMetaParser {
                   | "["! .x=expr ."]"                                    { [:List, x] }
                   | synPred
                   | "("! .x=expr .")"                                    { x } ;
+    annotation    : ."$Memo" (."[".t=name."]")?                          { [:Memo, t]}
+                  | ."$Scope"! ."[". l=listOf(:varname, ",") ."]"        { [:Scope, l]}
+                  ;
 
-    rule          : ."$Memo" (."[".t=name."]")? &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:MemoRule, t, n, [:Or, x] + xs ] }
-                  | &(.n=rulename) .x=rulePart(n)! xs=(.";" .rulePart(n))* .";"  { [:Rule, n, [:Or, x] + xs ] } ;
-    rulePart rn=_ : .n=name ?{ n.equals(rn) } !
-                    ( s=(.k("scope")"(" l=listOf(:varname, ",") .")") c=ruleStuff { [:Scope, l, c] }
-                    | ruleStuff
-                    );
+    ruleArgs      : ."("!. x=~")"* ")"                                   { "(#{join(x)})" };
+
+    rule          : a=annotation* .n=rulename! args=ruleArgs? .x=ruleStuff .";"  { [:Rule, n, args, x, a ] };
+
     ruleStuff     : .b1=expr4 (.":"! .b2=expr                                { [:And, b1, b2] }
                               | empty                                        { b1 }
                               ) ;
@@ -160,21 +161,22 @@ parser MMetaPass {
 
     destruct: r=_ ?{ hasRule(r) } ! x=apply(r) end { x };
     trans   : [ x=destruct ]                             { x }
-            | _                                                ;
+            | _
+            ;
     $Memo
-    Or       xs=trans*            { [:Or]  + xs   } ;
+    Or       : xs=trans*            { [:Or]  + xs   } ;
     $Memo
-    And      xs=trans*            { [:And] + xs   } ;
-    Not      x=trans              { [:Not,   x]   } ;
-    Many     x=trans              { [:Many,  x]   } ;
-    Many1    x=trans              { [:Many1, x]   } ;
-    Peek     x=trans              { [:Peek,  x]   } ;
-    List     x=trans              { [:List,  x]   } ;
-    Set      n=_ x=trans          { [:Set,  n, x] } ;
-    Rule     n=_ x=trans          { [:Rule, n, x] } ;
-    MemoRule t=_ n=_ x=trans          { [:MemoRule, t, n, x] } ;
-    SynPred  xs=trans*            { [:SynPred] + xs };
-    Error    m=_ x=trans          { [:Error, m, x] };
+    And      : xs=trans*            { [:And] + xs   } ;
+    Not      : x=trans              { [:Not,   x]   } ;
+    Many     : x=trans              { [:Many,  x]   } ;
+    Many1    : x=trans              { [:Many1, x]   } ;
+    Peek     : x=trans              { [:Peek,  x]   } ;
+    List     : x=trans              { [:List,  x]   } ;
+    Set      : n=_ x=trans          { [:Set,  n, x] } ;
+    Rule     : n=_ args=_ x=trans anno=_
+                                    { [:Rule, n, args, x, anno] } ;
+    SynPred  : xs=trans*            { [:SynPred] + xs };
+    Error    : m=_ x=trans          { [:Error, m, x] };
 
     start: r=destruct end { r }
          | r=_ end        { r }
@@ -182,10 +184,10 @@ parser MMetaPass {
 }
 
 parser MMetaAndOrOpt extends MMetaPass {
-    And  x=trans end          setChanged { x } ;
-    And xs=transInside(:And) end         { [:And] + xs } ;
-    Or   x=trans end          setChanged { x } ;
-    Or  xs=transInside(:Or) end          { [:Or] + xs  } ;
+    And : x=trans end          setChanged { x }
+        | xs=transInside(:And) end         { [:And] + xs } ;
+    Or  : x=trans end          setChanged { x }
+        | xs=transInside(:Or) end          { [:Or] + xs  } ;
 
     transInside s=_ : [ sym(s) xs=transInside(s) ] ys=transInside(s) setChanged { xs + ys  }
                     |   x=trans xs=transInside(s)                               { [x] + xs }

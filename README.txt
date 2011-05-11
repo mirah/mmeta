@@ -202,7 +202,7 @@ parser Calculator {
 // and Lists
 // the `[` opens up such a list, and starts parsing inside of it the matching
 //  `]` backs up one level. `end` in this context means end of list, not
-// necesairly end of input
+// necessarily end of input
 parser Interpreter {
     start: destruct ;
 
@@ -210,21 +210,17 @@ parser Interpreter {
     destruct: r=_ res=apply(r) end   { res } ;
     val: [ res=destruct ]            { res } ;
 
-    // second dirty trick, the `:` colon is optional, this reads like ocaml
-    // matching rules.
-    // notice the cast to Integer, since everything is typed Object in
-    // the parser
-    ADD l=val r=val
-        { Integer.valueOf(Integer(l).intValue + Integer(r).intValue) } ;
-    SUB l=val r=val
-        { Integer.valueOf(Integer(l).intValue - Integer(r).intValue) } ;
-    MUL l=val r=val
-        { Integer.valueOf(Integer(l).intValue * Integer(r).intValue) } ;
-    DIV l=val r=val
-        { Integer.valueOf(Integer(l).intValue / Integer(r).intValue) } ;
-    MOD l=val r=val
-        { Integer.valueOf(Integer(l).intValue % Integer(r).intValue) } ;
-    INT v=_ ;
+    ADD: l=val r=val
+         { Integer.valueOf(Integer(l).intValue + Integer(r).intValue) } ;
+    SUB: l=val r=val
+         { Integer.valueOf(Integer(l).intValue - Integer(r).intValue) } ;
+    MUL: l=val r=val
+         { Integer.valueOf(Integer(l).intValue * Integer(r).intValue) } ;
+    DIV: l=val r=val
+         { Integer.valueOf(Integer(l).intValue / Integer(r).intValue) } ;
+    MOD: l=val r=val
+         { Integer.valueOf(Integer(l).intValue % Integer(r).intValue) } ;
+    INT: v=_ ;
 }
 ```
 

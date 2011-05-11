@@ -94,7 +94,7 @@ public class BaseParser {
     }
 
     public static boolean tracing = false;
-    public static boolean debug_parse_tree = false;
+    public static boolean debug_parse_tree = Boolean.getBoolean("mmeta.debug_parse_tree");
     public Object trace(Object... args) throws RuleFailure {
         if (tracing) {
             for (int i = 0; i < args.length; i++) {
@@ -127,12 +127,12 @@ public class BaseParser {
     LinkedList<Object> args;
     State _stack = null;
     SparseArrayList<HashMap<String, Memoize>> _positions;
-    ArrayDeque<HashSet<String>> _lefts;
+    LinkedList<HashSet<String>> _lefts;
     // Use a reverse sorted TreeSet so we can use lines.tailSet(x).first() to find the
     // first value <= x;
     private TreeMap<Integer, Integer> lines = new TreeMap<Integer, Integer>(new ReverseComparator());
     private long nodeCount;
-    private ArrayDeque<String> parseTree = new ArrayDeque<String>();
+    private LinkedList<String> parseTree = new LinkedList<String>();
 
     public String filename = "<unknown>";
     public ErrorHandler errorHandler = new DefaultErrorHandler();
@@ -252,7 +252,7 @@ public class BaseParser {
     public void _init() {
         _pos = 0;
         _positions = new SparseArrayList<HashMap<String, Memoize>>();
-        _lefts = new ArrayDeque<HashSet<String>>();
+        _lefts = new LinkedList<HashSet<String>>();
         lines = new TreeMap<Integer, Integer>(new ReverseComparator());
         lines.put(0, 0);
         args = new LinkedList<Object>();
@@ -532,7 +532,7 @@ public class BaseParser {
         trace("try _sym():", s);
         if (_list == null && args.isEmpty())
             throw new IllegalStateException("symbol ('`"+ s +"') is only available in list parsing");
-        if (_peek().equals(s)) { _any(); return trace(" ok _sym():",s); } else return _error("");
+        if (_peek().equals(s)) { _any(); return trace(" ok _sym():",s); } else return _error(s);
     }
 
     public Object _char(String s) throws RuleFailure {
@@ -542,7 +542,7 @@ public class BaseParser {
         char c = _cpeek();
         if (s.indexOf(c) >= 0) { _any(); return _exit(c); }
         _exit(ERROR);
-        return _error("");
+        return _error("["+s+"]");
     }
 
     /// nl; parses a single newline
@@ -560,7 +560,7 @@ public class BaseParser {
             throw new IllegalStateException("charRange is only available in string parsing");
         char c = _cpeek();
         if (c >= b && c <= e) { _any(); return c; }
-        return _error("");
+        return _error("["+b+"-"+e+"]");
     }
 
     /// default rule that parses [0-9]
@@ -696,7 +696,7 @@ public class BaseParser {
         return cached_token;
       } else {
         _pos = cached_token.pos;
-        return _error("");
+        return _error(type.name().substring(1));
       }
     }
 

@@ -1,7 +1,8 @@
 
-def {{RULE}}
+def {{RULE}}{{ARGS}}
   throws RuleFailure{{#DEBUG}}
-  _enter('{{RULE}}'){{/DEBUG}}
+  _enter('{{RULE}}'){{/DEBUG}}{{#SCOPE_VARS}}
+  __saved_{{SIMPLE_NAME}} = {{NAME}}{{/SCOPE_VARS}}
   begin
     _start = _pos; _real_start = -1{{#LOCALS}}
     {{LOCAL}} = nil{{/LOCALS}}{{#DEBUG}}
@@ -15,6 +16,8 @@ def {{RULE}}
   rescue RuleFailure => ex
     ex.last = '{{RULE}}'{{#DEBUG}}
     _exit(ex){{/DEBUG}}
-    raise ex
-  end   
+    raise ex{{#SCOPE}}
+  ensure{{#SCOPE_VARS}}
+    {{NAME}} = __saved_{{SIMPLE_NAME}}{{/SCOPE_VARS}}{{/SCOPE}}
+  end
 end

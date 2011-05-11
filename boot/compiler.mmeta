@@ -16,7 +16,7 @@ public parser MMetaCompiler {
       # if args.length > 1 && args[1].equals("--embed")
       #     embed = true
       # end
-      options = {recursion: Boolean.valueOf(false), auto_memo: Boolean.valueOf(false)}
+      options = {recursion: Boolean.valueOf(false), auto_memo: Boolean.valueOf(false), debug: Boolean.valueOf(false)}
       i = 0
       while i < args.length && args[i].startsWith('--')
         arg = args[i].substring(2)
@@ -39,6 +39,7 @@ public parser MMetaCompiler {
       compiler = MMetaCompiler.new
       compiler.left_recursion = Boolean(options.get(:recursion)).booleanValue
       compiler.auto_memo = Boolean(options.get(:auto_memo)).booleanValue
+      compiler.debug = Boolean(options.get(:debug)).booleanValue
       # compiler.embedded = embed
       parser = MMetaParser.new
       BaseParser.tracing = false
@@ -65,6 +66,7 @@ public parser MMetaCompiler {
       @left_recursion = Boolean.getBoolean("mmeta.left_recursion")
       @auto_memo = Boolean.getBoolean("mmeta.auto_memo")
       @templates = TemplateResourceLoader.create('mmeta/templates/')
+      @debug = Boolean.getBoolean("mmeta.debug")
     }
 
     def left_recursion_set(value:boolean) {
@@ -73,6 +75,10 @@ public parser MMetaCompiler {
 
     def auto_memo_set(value:boolean) {
       @auto_memo = value
+    }
+
+    def debug_set(value:boolean) {
+      @debug = value
     }
 
     def reset {
@@ -97,66 +103,69 @@ public parser MMetaCompiler {
     def genvar { "" + (@__genc = @__genc + 1); }
 
     destruct: ! t=_ r=apply(t) end    { r } ;
-    trans scope(@dict): [ r=destruct ]             { r } ;
 
-    HList ls=trans* {
+    $Scope[@dict]
+    trans: [ r=destruct ]             { r } ;
+
+    HList: ls=trans* {
       if List(ls).size == 0
         "ArrayList.new"
       else
         "[#{join(ls, ", ")}]"
       end
     };
-    HConcat l=trans r=trans { "concat(#{l}, #{r})" };
-    HStr c=_ { "\"#{c}\"" };
-    HLit c=_ { c } ;
+    HConcat: l=trans r=trans { "concat(#{l}, #{r})" };
+    HStr: c=_ { "\"#{c}\"" };
+    HLit: c=_ { c } ;
 
-    Node n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
+    Node: n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
 
-    Error msg=_ body=trans {
+    Error: msg=_ body=trans {
       add_dict
       @dict.setVariable(:MESSAGE, msg.toString)
       add_expr(:BODY, body)
       render(:syntax_error)
     };
-    Set n=_ x=trans {
+    Set: n=_ x=trans {
         addLocal(n);
         add_dict
         @dict.setVariable(:NAME, n.toString)
         add_expr(:EXPR, x)
         render(:save_to_var)
     };
-    Str s=_ { compile_literal_string(s) };
-    Sym s=_ { "_sym(\"#{s}\")" };
+    Str: s=_ { compile_literal_string(s) };
+    Sym: s=_ { "_sym(\"#{s}\")" };
 
 
-    App :super rule=_ args=trans+ {
-        arg_str = "[#{join(args, ", ")}].toArray"
-        "begin\n  _push(#{arg_str})\n  super()\nend"
-    };
-    App :super rule=_ { "super()" };
-    App rule=_ args=trans+ {
-        arg_str = "[#{join(args, ", ")}].toArray"
-        "begin\n  _push(#{arg_str})\n  self.#{rule}()\nend"
-    };
-    App rule=_ { "self.#{rule}()" };
+    App: :super rule=_ args=trans+ {
+         arg_str = "[#{join(args, ", ")}].toArray"
+         "begin\n  _push(#{arg_str})\n  super()\nend"
+         }
+       | :super rule=_ { "super()" }
+       | rule=_ args=trans+ {
+         arg_str = "[#{join(args, ", ")}].toArray"
+         "begin\n  _push(#{arg_str})\n  self.#{rule}()\nend"
+         }
+       | rule=_ { "self.#{rule}()" }
+       ;
 
     # Don't include whitespace at the beginning of the rule in it's position
-    Dot {"if _start == _pos;ws();_real_start=_pos;nil;else;ws();nil;end"};
+    Dot: {"if _start == _pos;ws();_real_start=_pos;nil;else;ws();nil;end"};
 
-    SAct expr=trans { "#{expr}" };
-    Act expr=_ {
+    SAct: expr=trans { "#{expr}" };
+    Act: expr=_ {
         add_dict
         add_expr(:BODY, expr)
         render(:action)
     };
-    Pred expr=_ {
+    Pred: expr=_ {
       add_dict
       unless expr.nil? || "false".equals(expr.toString.trim)
         @dict.setVariable(:EXPR, expr.toString)
       end
       render('predicate')
     };
-    SynPred! pred=trans body=trans tail=(trans | end {nil}) {
+    SynPred: ! pred=trans body=trans tail=(trans | end {nil}) {
       add_dict
       add_expr(:PRED, pred)
       add_expr(:BODY, body)
@@ -166,10 +175,10 @@ public parser MMetaCompiler {
       render('syn_pred')
     };
 
-    Token name=_ {
+    Token: name=_ {
       "_lex(Tokens.t#{name})"
     };
-    TokenRange first=_ last=_ {
+    TokenRange: first=_ last=_ {
       range = lookup_range(first, last)
       add_dict
       @dict.setVariable(:FIRST, first.toString)
@@ -177,14 +186,14 @@ public parser MMetaCompiler {
       @dict.setVariable(:RANGE, range)
       render('token_range')
     };
-    TLit name=_ {
+    TLit: name=_ {
       token = Integer.valueOf(lookup_token(name))
       add_dict
       @dict.setVariable(:NAME, name.toString)
       @dict.setVariable(:TOKEN, token.toString)
     };
 
-    Or xs=trans* {
+    Or: xs=trans* {
       dict = add_dict
       dict.setVariable(:ELSE, 'or')
       exprs = List(xs)
@@ -204,16 +213,17 @@ public parser MMetaCompiler {
       end
     };
 
-    And ts=trans+ {
-      add_dict
-      @dict.setVariable(:VAR, genvar)
-      err = String(nil)
-      List(ts).each do |expr|
-        add_expr(:EXPR, expr, @dict.addSection(:EXPR))
-      end
-      render('and')
-    };
-    And { "" };
+    And: ts=trans+ {
+           add_dict
+           @dict.setVariable(:VAR, genvar)
+           err = String(nil)
+           List(ts).each do |expr|
+             add_expr(:EXPR, expr, @dict.addSection(:EXPR))
+           end
+           render('and')
+         }
+       | { "" }
+       ;
 
     def makeMany(x:Object, many1:boolean) {
       add_dict
@@ -227,60 +237,81 @@ public parser MMetaCompiler {
         render('build_list')
       end
     }
-    Many x=trans { makeMany(x, false) } ;
-    Many1 x=trans { makeMany(x, true)  } ;
+    Many: x=trans { makeMany(x, false) } ;
+    Many1: x=trans { makeMany(x, true)  } ;
 
-    Opt x=trans {
+    Opt: x=trans {
       add_dict
       add_expr(:EXPR, x)
       render('opt')
     };
 
-    Not x=trans {
+    Not: x=trans {
       add_dict
       add_expr(:EXPR, x)
       render('not')
     };
 
-    Peek x=trans {
+    Peek: x=trans {
       add_dict
       @dict.setVariable(:VAR, genvar)
       add_expr(:EXPR, x)
       render('peek')
     };
 
-    List x=trans {
+    List: x=trans {
       add_dict
       add_expr(:EXPR, x)
       render('list')
     };
 
-    MemoRule t=_ n=_ b=trans {
-      rule_body(n, b, true, t)
-    };
-
-    Rule n=_ b=trans {
-      rule_body(n, b, false, nil)
-    };
-
-    Scope names=_ body=trans {
+    Rule: name=_ args=_ body=trans annotations=_ {
+      @rules.add(name)
       add_dict
-      add_expr(:BODY, body)
-      l = if names.kind_of?(List)
-        List(names)
+      @dict.setVariable(:RULE, name.toString)
+      @dict.setVariable(:MEMO_KEY, "#{@name}.#{name}")
+      @dict.showSection(:DEBUG) if @debug
+      @dict.setVariable(:ARGS, args.toString) if args
+      memoized = @auto_memo
+      type = nil
+      List(annotations).each do |_anno|
+        anno = List(_anno)
+        if "Memo".equals(anno.get(0))
+          memoized = true
+          type = anno.get(1)
+        elsif "Scope".equals(anno.get(0))
+          saved_names = List(anno.get(1))
+          @dict.showSection(:SCOPE)
+          saved_names.each do |_name|
+            var_name = String(_name)
+            dict = @dict.addSection(:SCOPE_VARS)
+            dict.setVariable(:NAME, var_name)
+            dict.setVariable(:SIMPLE_NAME, var_name.replace('@', ''))
+          end
+        end
+      end
+      localsAsInit
+      if memoized
+        @dict.showSection(:MEMO)
+        @dict.setVariable(:CAST, type.toString) if type
+        if @left_recursion
+          @dict.showSection(:RECURSION)
+          @dict.setVariable(:MEMO_RULE, :memo_rule)
+          @dict.setVariable(:RULE_BODY, :recursive_rule)
+        else
+          @dict.showSection(:NO_RECURSION)
+          @dict.setVariable(:RULE_BODY, :memo_rule)
+        end
+        add_expr(:BODY, body, @dict.addSection(:RULE_BODY))
       else
-        Arrays.asList(Object[].cast(names))
+        @dict.showSection(:UNMEMO)
+        @dict.showSection(:NO_RECURSION)
+        add_expr(:RULE_BODY, body)
       end
-      l.each do |_name|
-        name = String(_name)
-        dict = @dict.addSection(:VARS)
-        dict.setVariable(:NAME, name)
-        dict.setVariable(:SIMPLE_NAME, name.replace('@', ''))
-      end
-      render('scope')
+      render('rule')
     };
 
-    Parser p=_ n=_ s=_ { @name = String(n); @sname = String(s) } xs=trans* {
+    Parser: p=_ n=_ s=_ { @name = String(n); @sname = String(s) } xs=trans* {
       dict = add_dict
       build_init
       @rules.each do |name|
@@ -297,21 +328,21 @@ public parser MMetaCompiler {
       b
     };
 
-    Method name=_ args=_ body=_ {
-      add_dict
-      @dict.setVariable(:NAME, name.toString)
-      @dict.setVariable(:ARGS, args.toString)
-      add_expr(:BODY, body)
-      render('method')
-    };
-    Method  c=_ { "  #{c}\n" } ;
-    Field   c=_ { "  #{c}\n" } ;
-    Package c=_ { @jpackage = String(c); ""; } ;
-    Import  c=_ { "#{c}\n" } ;
-    Class   q=_ d=_ c=_ { "#{d}\n#{c}\n end" } ;
-    Line  ws=_ x=trans { ws.toString + x.toString } ;
+    Method:  name=_ args=_ body=_ {
+               add_dict
+               @dict.setVariable(:NAME, name.toString)
+               @dict.setVariable(:ARGS, args.toString)
+               add_expr(:BODY, body)
+               render('method')
+             }
+          |  c=_ { "  #{c}\n" } ;
+    Field:   c=_ { "  #{c}\n" } ;
+    Package: c=_ { @jpackage = String(c); ""; } ;
+    Import:  c=_ { "#{c}\n" } ;
+    Class:   q=_ d=_ c=_ { "#{d}\n#{c}\n end" } ;
+    Line:  ws=_ x=trans { ws.toString + x.toString } ;
 
-    File  xs=trans* {
+    File:  xs=trans* {
         "# generated by mmeta on #{Date.new}\n" +
         "# do not modify, instead edit original .mmeta file\n" +
         "import java.util.ArrayList\n" +
@@ -408,32 +439,6 @@ public parser MMetaCompiler {
         dict.setVariable(:LAST, tokens[1])
         dict.setVariable(:NAME, @ranges.get(key).toString)
       end
-    }
-
-    def rule_body(n:Object, b:Object, force_memo:boolean, type:Object) {
-      @rules.add(n)
-      add_dict
-      @dict.setVariable(:RULE, n.toString)
-      @dict.setVariable(:MEMO_KEY, "#{@name}.#{n}")
-      localsAsInit
-      if force_memo || @auto_memo
-        @dict.showSection(:MEMO)
-        @dict.setVariable(:CAST, type.toString) if type
-        if @left_recursion
-          @dict.showSection(:RECURSION)
-          @dict.setVariable(:MEMO_RULE, :memo_rule)
-          @dict.setVariable(:RULE_BODY, :recursive_rule)
-        else
-          @dict.showSection(:NO_RECURSION)
-          @dict.setVariable(:RULE_BODY, :memo_rule)
-        end
-        add_expr(:BODY, b, @dict.addSection(:RULE_BODY))
-      else
-        @dict.showSection(:UNMEMO)
-        @dict.showSection(:NO_RECURSION)
-        add_expr(:RULE_BODY, b)
-      end
-      render('rule')
     }
 
     def render(template:String, dict:TemplateDataDictionary=nil) {

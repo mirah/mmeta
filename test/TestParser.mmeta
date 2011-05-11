@@ -43,7 +43,8 @@ parser TestParser {
   pred: "pred"! . e="a"+ ?{"aaa".equals(join(e))} -> ^(Pred e);
   action: "action"! . e="a"+ s= { join(e) } -> ^(Action s);
   scope_rule: "scope"! {@a="a"} a={@a} b=scoped c={@a} d={"#{a}#{b}#{c}"} -> ^(Scope d);
-  scoped scope(@a): {@a = "b"} {@a};
+  $Scope[@a]
+  scoped: {@a = "b"} {@a};
   squote: "'" -> ^(SQuote);
   dquote: "\"" -> ^(DQuote);
   memo: s={ checkstring(memostring) } -> ^(Memo s);

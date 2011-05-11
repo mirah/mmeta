@@ -16,7 +16,7 @@ end
 
 task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', '--auto_memo', 'boot/parser.mmeta', 'boot/parser.mirah'
-  runjava 'dist/mmeta.jar', 'boot/mirah_compiler.mmeta', 'boot/mirah_compiler.mirah'
+  runjava 'dist/mmeta.jar', 'boot/compiler.mmeta', 'boot/compiler.mirah'
 end
 
 file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
@@ -34,9 +34,9 @@ file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/m
          :options => ['--classpath', 'dist/mmeta-runtime.jar'])
 end
 
-file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/mirah_compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
-  cp 'boot/mirah_compiler.mirah', 'build/boot/mmeta/'
-  mirahc('mmeta/mirah_compiler.mirah',
+file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
+  cp 'boot/compiler.mirah', 'build/boot/mmeta/'
+  mirahc('mmeta/compiler.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
          :options => ['--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'])
