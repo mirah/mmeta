@@ -691,33 +691,6 @@ public class BaseParser {
     public <T extends Enum<T>> Token<T> build_token(Enum<T> type, int pos, int start, int endpos) {
       return new Token<T>(type, pos, start, endpos);
     }
-    
-    public Object lex() throws RuleFailure {
-      return _error("");
-    }
-    
-    public Object _lex(Enum<?> type) throws RuleFailure {
-      _lex();
-      if (cached_token.type == type) {
-        return cached_token;
-      } else {
-        _pos = cached_token.pos;
-        return _error(type.name().substring(1));
-      }
-    }
-
-    public Token _lex() throws RuleFailure {
-      if (cached_token.pos != _pos) {
-          try {
-              Object t = lex();
-              cached_token = (Token<?>)t;
-          } catch (RuleFailure ex) {
-              cached_token = new Token(null, _pos, _pos, _pos);
-          }
-      }
-      _pos = cached_token.endpos;
-      return cached_token;
-    }
 
     public class Token<T extends Enum<T>> {
       public Token(Enum<T> type, int pos, int start, int end) {

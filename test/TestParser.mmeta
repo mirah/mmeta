@@ -12,10 +12,17 @@ parser TestParser {
     @lexer = MirahLexer.new(_string, @chars, self)
   }
 
-  def lex {
+  def _lex {
     t = @lexer.lex(_pos)
     _enter(t.text)
     _exit(t)
+    t
+  }
+
+  def _lex(type:Tokens) {
+    token = _lex
+    raise @error unless token.type == type
+    token
   }
 
   def checkstring(s:String) {
