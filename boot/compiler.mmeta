@@ -137,16 +137,12 @@ public parser MMetaCompiler {
     Sym: s=_ { "_sym(\"#{s}\")" };
 
 
-    App: :super rule=_ args=trans+ {
-         arg_str = "[#{join(args, ", ")}].toArray"
-         "begin\n  _push(#{arg_str})\n  super()\nend"
+    App: :super rule=_ args=trans* {
+         "super(#{join(args, ", ")})"
          }
-       | :super rule=_ { "super()" }
-       | rule=_ args=trans+ {
-         arg_str = "[#{join(args, ", ")}].toArray"
-         "begin\n  _push(#{arg_str})\n  self.#{rule}()\nend"
+       | rule=_ args=trans* {
+         "self.#{rule}(#{join(args, ", ")})"
          }
-       | rule=_ { "self.#{rule}()" }
        ;
 
     # Don't include whitespace at the beginning of the rule in it's position
@@ -266,7 +262,7 @@ public parser MMetaCompiler {
     };
 
     Rule: name=_ args=_ body=trans annotations=_ {
-      @rules.add(name)
+      @rules.add(name) if args.nil?
       add_dict
       @dict.setVariable(:RULE, name.toString)
       @dict.setVariable(:MEMO_KEY, "#{@name}.#{name}")
@@ -290,6 +286,7 @@ public parser MMetaCompiler {
           end
         end
       end
+      memoized = false if args
       localsAsInit
       if memoized
         @dict.showSection(:MEMO)

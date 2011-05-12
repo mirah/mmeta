@@ -1,8 +1,6 @@
-begin  # '{{STRING}}'
-  {{VAR}} = _pos
-  raise @error if {{VAR}} + {{LENGTH}} > @chars.length{{#CHAR}}
-  raise @error unless @chars[{{VAR}}] == {{CHAR}}
-  {{VAR}} += 1{{/CHAR}}
-  self._pos = {{VAR}}
+if _string.startsWith("{{STRING}}", _pos)
+  self._pos += {{LENGTH}}
   "{{STRING}}"
+else
+  raise @error
 end

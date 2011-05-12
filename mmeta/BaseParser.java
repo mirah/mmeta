@@ -339,7 +339,9 @@ public class BaseParser {
 
     /// rule that requires a Symbol and runs the corresponding rule
     public Object apply() throws RuleFailure {
-        Object r = _pop();
+      return apply(_pop());
+    }
+    public Object apply(Object r) throws RuleFailure {
         if (!(r instanceof String)) { return _error("apply() must receive a string"); }
         try {
           return _jump((String) r);
@@ -361,14 +363,18 @@ public class BaseParser {
 
     /// str; next element must be given string
     public Object str() throws RuleFailure {
-        Object r = _pop();
+      return str(_pop());
+    }
+    public Object str(Object r) throws RuleFailure {
         if (!(r instanceof String)) throw new IllegalArgumentException("'str' must receive a String; not: "+ r);
         return _str((String) r);
     }
 
     /// sym; next element must be given symbol
     public Object sym() throws RuleFailure {
-        Object r = _pop();
+      return sym(_pop());
+    }
+    public Object sym(Object r) throws RuleFailure {
         if (!(r instanceof String)) throw new IllegalArgumentException("'sym' must receive a String; not: "+ r);
         return _sym((String) r);
     }

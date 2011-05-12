@@ -29,11 +29,11 @@ parser Interpreter2 {
     start: ! r=_ res=apply(r) end   { res } ;
     val: [ ! r=_ res=apply(r) end ] { res } ;
 
-    ADD l=val r=val _ { Integer.valueOf(Integer(l).intValue + Integer(r).intValue) } ;
-    SUB l=val r=val _ { Integer.valueOf(Integer(l).intValue - Integer(r).intValue) } ;
-    MUL l=val r=val _ { Integer.valueOf(Integer(l).intValue * Integer(r).intValue) } ;
-    DIV l=val r=val _ { Integer.valueOf(Integer(l).intValue / Integer(r).intValue) } ;
-    MOD l=val r=val _ { Integer.valueOf(Integer(l).intValue % Integer(r).intValue) } ;
-    INT v=_ _         { v } ;
+    ADD: l=val r=val _ { Integer.valueOf(Integer(l).intValue + Integer(r).intValue) } ;
+    SUB: l=val r=val _ { Integer.valueOf(Integer(l).intValue - Integer(r).intValue) } ;
+    MUL: l=val r=val _ { Integer.valueOf(Integer(l).intValue * Integer(r).intValue) } ;
+    DIV: l=val r=val _ { Integer.valueOf(Integer(l).intValue / Integer(r).intValue) } ;
+    MOD: l=val r=val _ { Integer.valueOf(Integer(l).intValue % Integer(r).intValue) } ;
+    INT: v=_ _         { v } ;
 }
 

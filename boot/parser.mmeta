@@ -3,16 +3,17 @@ package mmeta;
 import java.util.*;
 
 public parser MMetaParser {
-    def oneOf() {
-      chars = String(_pop())
+    def oneOf(chars:String) {
       return _char(chars)
     }
 
-    fromTo x=_ y=_: str(x) (~str(y) _)* str(y) ;
+    fromTo(x:String, y:String)
+                  : str(x) (~str(y) _)* str(y) ;
     sp            : super.sp | fromTo("//","\n") | fromTo("/*","*/") | fromTo("#", "\n") ;
     ws            : (sp|nl)* ;
 
-    listOf e=_ s=_: .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
+    listOf(e:String, s:String)
+                  : .f=apply(e) rs=(.str(s) .apply(e))*                 { [f] + rs }
                   | empty                                               { [] } ;
 
     nameFirst     : "_" | letter ;
@@ -35,7 +36,8 @@ public parser MMetaParser {
     number        : sign=("-"|"+"|empty) ds=digit+                      { ["HLit", "#{sign}#{join(ds)}"] } ;
     symbol        : ("'"|":") (s=name
                               | "'" c=(~"'" _)+ "'" s={join(c)}) { [:Sym, s] } ;
-    k keyword=_   : str(keyword) ~(nameFirst|digit)                     { keyword } ;
+    k(keyword:String)
+                  : str(keyword) ~(nameFirst|digit)                     { keyword } ;
 
     error         : ."!" msg=(dollarstring|empty) b=expr4               { [:Error, msg, b] } ;
     any           : "_"                                                 { [:App, :_any] } ;
@@ -81,7 +83,8 @@ public parser MMetaParser {
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
     expr4         : xs=(error | expr3)*                                 { [:And] + xs  } ;
-    optIter x=_   : "*"                                                 { [:Many,  x]  }
+    optIter(x:Object)
+                  : "*"                                                 { [:Many,  x]  }
                   | "+"                                                 { [:Many1, x]  }
                   | "?"                                                 { [:Opt,   x]  }
                   | empty                                               { x            } ;
@@ -91,7 +94,7 @@ public parser MMetaParser {
                   | "&"! x=expr1                                        { [:Peek, x]   }
                   | expr1 ;
     expr1         : wsdot | any | semPred | semAction | application | tokens
-                  | x=(k("null")|k("true")|k("false"))                  { [:HLit, x] }
+                  | k=(k("null")|k("true")|k("false"))                  { [:HLit, k] }
                   | string | symbol | number
                   | "["! .x=expr ."]"                                    { [:List, x] }
                   | synPred
@@ -100,13 +103,9 @@ public parser MMetaParser {
                   | ."$Scope"! ."[". l=listOf(:varname, ",") ."]"        { [:Scope, l]}
                   ;
 
-    ruleArgs      : ."("!. x=~")"* ")"                                   { "(#{join(x)})" };
+    ruleArgs      : . "(" s=(~")" _)* ")"                                { "(#{join(s)})" };
 
-    rule          : a=annotation* .n=rulename! args=ruleArgs? .x=ruleStuff .";"  { [:Rule, n, args, x, a ] };
-
-    ruleStuff     : .b1=expr4 (.":"! .b2=expr                                { [:And, b1, b2] }
-                              | empty                                        { b1 }
-                              ) ;
+    rule          : a=annotation* .n=rulename! args=ruleArgs? .":" .x=expr .";"  { [:Rule, n, args, x, a ] };
 
     // java parsing support
     qualifiers: qs=(.k("public")|.k("private")|.k("final")|.k("static")|.k("abstract"))+
@@ -132,9 +131,9 @@ public parser MMetaParser {
     } ;
 
     ruleMethod: .method | .rule ;
-    parser    : .p=(k("public")|empty) .k("parser") ! .n=name .sn=((k("extends") | ."<") .name|empty {"BaseParser"})
+    parser    : .m=(k("public")|empty) .k("parser") ! .n=name .sn=((k("extends") | ."<") .name|empty {"BaseParser"})
                 ."{" rs=ruleMethod* ."}"
-                p={ [:Parser, p, n, sn] + rs } !
+                p={ [:Parser, m, n, sn] + rs } !
                 {
                    if (Boolean.getBoolean("mmeta.optimize.debug"))
                      System.out.println("Before:\n" + BaseParser.print_r(p));
@@ -189,7 +188,8 @@ parser MMetaAndOrOpt extends MMetaPass {
     Or  : x=trans end          setChanged { x }
         | xs=transInside(:Or) end          { [:Or] + xs  } ;
 
-    transInside s=_ : [ sym(s) xs=transInside(s) ] ys=transInside(s) setChanged { xs + ys  }
+    transInside(s:String)
+                    : [ sym(s) xs=transInside(s) ] ys=transInside(s) setChanged { xs + ys  }
                     |   x=trans xs=transInside(s)                               { [x] + xs }
                     |                                                           { []       } ;
 }
