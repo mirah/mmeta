@@ -4,7 +4,7 @@ def {{RULE}}{{ARGS}}
   _enter('{{RULE}}'){{/DEBUG}}{{#SCOPE_VARS}}
   __saved_{{SIMPLE_NAME}} = {{NAME}}{{/SCOPE_VARS}}
   begin
-    _start = _pos; _real_start = -1{{#LOCALS}}; {{LOCAL}} = nil{{/LOCALS}}{{#DEBUG}}
+    _start = _pos{{#LOCALS}}; {{LOCAL}} = nil{{/LOCALS}}{{#DEBUG}}
     _e = ({{/DEBUG}}{{#MEMO}}
     _t = _{{#NO_RECURSION}}s{{/NO_RECURSION}}retrieve("{{MEMO_KEY}}")
     return {{#CAST}}{{CAST}}({{/CAST}}{{#DEBUG}}_exit({{/DEBUG}}_t{{#DEBUG}}){{/DEBUG}}{{#CAST}}){{/CAST}} unless _t == BaseParser.NOT_MEMOIZED{{/MEMO}}

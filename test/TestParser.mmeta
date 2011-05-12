@@ -29,6 +29,15 @@ parser TestParser {
     s
   }
 
+
+  def build_node(name:String, children:List, start_pos:int, end_pos:int) {
+      node = Ast.new(name, children)
+      node.start_position = pos(start_pos)
+      node.end_position = pos(end_pos)
+      node
+  }
+
+
   start: ! e=expr . end      { e };
   expr: empty_string | syn_pred | token_literal | token_range | star
       | plus | save | peek | not_rule | opt | pred | action | scope_rule | eof

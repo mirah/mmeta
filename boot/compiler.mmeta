@@ -118,7 +118,7 @@ public parser MMetaCompiler {
     HStr: c=_ { "\"#{c}\"" };
     HLit: c=_ { c } ;
 
-    Node: n=_ c=trans {"build_node('#{n}', #{c}, _real_start > 1 ? _real_start : _start, _pos)"};
+    Node: n=_ c=trans {"build_node('#{n}', #{c}, _start, _pos)"};
 
     Error: msg=_ body=trans {
       add_dict
@@ -145,8 +145,7 @@ public parser MMetaCompiler {
          }
        ;
 
-    # Don't include whitespace at the beginning of the rule in it's position
-    Dot: {"if _start == _pos;ws();_real_start=_pos;nil;else;ws();nil;end"};
+    Dot: {"ws()"};
 
     SAct: expr=trans { "#{expr}" };
     Act: expr=_ {
@@ -325,10 +324,11 @@ public parser MMetaCompiler {
       b
     };
 
-    Method:  name=_ args=_ body=_ {
+    Method:  name=_ args=_ body=_ ismacro=_ {
                add_dict
                @dict.setVariable(:NAME, name.toString)
                @dict.setVariable(:ARGS, args.toString)
+               @dict.showSection(:MACRO) if ismacro
                add_expr(:BODY, body)
                render('method')
              }
