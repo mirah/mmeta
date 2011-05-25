@@ -436,6 +436,24 @@ public class BaseParser {
         return _pos - pos - 1;
     }
 
+    public Ast build_node(String name, List<?> children, int start_pos, int end_pos) {
+        Ast node = new Ast(name, children);
+        node.start_position_set(pos(start_pos));
+        node.end_position_set(pos(end_pos));
+        return node;
+    }
+
+    public Ast build_node(String name, int start_pos, int end_pos) {
+        Ast node = new Ast(name);
+        node.start_position_set(pos(start_pos));
+        node.end_position_set(pos(end_pos));
+        return node;
+    }
+
+    public Ast build_node(String name, Object children, int start_pos, int end_pos) {
+        return build_node(name, (List<?>)children, start_pos, end_pos);
+    }
+
     public String text(int start, int end) {
       return _string.substring(start, end);
     }
@@ -693,6 +711,10 @@ public class BaseParser {
       
       public boolean space_seen() {
         return pos != startpos;
+      }
+      
+      public String toString() {
+        return "<Token " + type + ": '" + text() + "'>";
       }
     }
     

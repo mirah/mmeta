@@ -129,4 +129,8 @@ class TestParsing < Test::Unit::TestCase
   def test_memo
     assert_parse('[Memo, memo]', 'memo')
   end
+
+  def test_cast
+    assert_parse('[Cast]', 'cast')
+  end
 end

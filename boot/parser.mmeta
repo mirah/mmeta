@@ -51,13 +51,15 @@ public parser MMetaParser {
     fname         : t=(x=name "." { "#{x}." })* n=name {"#{join(t)}#{n}"};
     parens        : "(" x=(parens | ~oneOf("()") _)* ")" {"(#{join(x)})"};
 
-    rewrite_expr  : . n=name p=parens                                   { ["HLit", "#{n}#{p}"] }
-                  | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, c]}
-                  | . "^(" . n=name cl=rewrite_expr* . ")"              { [:Node, n, [:HList] + cl]}
+    dotted_name   : . h=name t=(."." .name)* l = { [h] + t }            { join(l, ".") };
+
+    rewrite_expr  : . n=dotted_name p=parens                            { ["HLit", "#{n}#{p}"] }
+                  | . "^(" . n=name c=rewrite_expr . oneOf("*+") . ")"  { [:Node, n, [:HList, c] ] }
+                  | . "^(" . n=name! cl=rewrite_expr* . ")"             { [:Node, n, [:HList] + cl] }
                   | ."$" n=name                                         { [:TLit, n] }
                   | .s=tsString                                         { [:HStr, s] }
-                  | . n=name                                            { [:HLit, n] }
-                  | ."[" xs=listOf(:rewrite_expr, ",") ."]"             { [:HList] + xs };
+                  | . n=dotted_name                                     { [:HLit, n] }
+                  | ."["! xs=listOf(:rewrite_expr, ",") ."]"            { [:HList] + xs };
 
     simplehost    : rs=simplehost1 ."+" .ls=simplehost                  { [:HConcat, rs, ls] }
                   | x=simplehost1                                       { x } ;
@@ -101,6 +103,7 @@ public parser MMetaParser {
                   | "("! .x=expr .")"                                    { x } ;
     annotation    : ."$Memo" (."[".t=name."]")?                          { [:Memo, t]}
                   | ."$Scope"! ."[". l=listOf(:varname, ",") ."]"        { [:Scope, l]}
+                  | ."$Returns"! ."[". n=varname ."]"                     { [:Returns, n]}
                   ;
 
     ruleArgs      : . "(" s=(~")" _)* ")"                                { "(#{join(s)})" };
