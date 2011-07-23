@@ -1,0 +1,1 @@
+build_node('{{TYPE}}', {{#NO_CHILDREN}}ArrayList.new{{/NO_CHILDREN}}{{#CHILD}}{{#CHILD_it_First}}[{{/CHILD_it_First}}{{CHILD}}{{#CHILD_it_NotLast}}, {{/CHILD_it_NotLast}}{{#CHILD_it_Last}}]{{/CHILD_it_Last}}{{/CHILD}}, _start, _pos)
