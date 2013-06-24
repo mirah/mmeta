@@ -64,7 +64,7 @@ class DefaultErrorHandler; implements ErrorHandler
     out.toString
   end
 
-  def warning(messages, positions)
+  def warning(messages:String[], positions:Position[]):void
     System.err.print("Warning: ")
     System.err.println(formatMessage(messages, positions, 0))
   end
