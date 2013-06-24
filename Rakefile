@@ -26,7 +26,7 @@ end
 
 file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
   cp 'boot/parser.mirah', 'build/boot/mmeta/'
-  mirahc('mmeta/parser.mirah',
+  mirahc('build/boot/mmeta/parser.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
          :options => ['--classpath', 'dist/mmeta-runtime.jar'])
@@ -34,23 +34,27 @@ end
 
 file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
   cp 'boot/compiler.mirah', 'build/boot/mmeta/'
-  mirahc('mmeta/compiler.mirah',
-         :dir => 'build/boot',
+  mirahc('build/boot/mmeta/compiler.mirah',
+         :dir  => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'])
+         :options => [
+           '--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'
+  ])
 end
 
 file 'dist/mmeta.jar' => ['dist/mmeta-runtime.jar',
                           'build/boot/mmeta/MMetaParser.class',
                           'build/boot/mmeta/MMetaCompiler.class'] + Dir['boot/templates/*.xtm'] do
   cp_r 'boot/templates', 'build/boot/mmeta/'
-  ant.jar :destfile=>'dist/mmeta.jar' do
-    fileset :dir=>"build/boot", :includes=>"mmeta/*.class"
-    fileset :dir=>"build/boot", :includes=>"mmeta/templates/*.xtm"
-    zipfileset :includes=>"**/*.class", :src=>"javalib/hapax-2.3.5-autoindent.jar"
-    zipfileset :includes=>"mmeta/*.class", :src=>'dist/mmeta-runtime.jar'
+  ant.jar :destfile => 'dist/mmeta.jar' do
+    fileset :dir => "build/boot", :includes => "mmeta/*.class"
+    fileset :dir => "build/boot", :includes => "mmeta/templates/*.xtm"
+    zipfileset :includes => "**/*.class",
+               :src      => "javalib/hapax-2.3.5-autoindent.jar"
+    zipfileset :includes => "mmeta/*.class",
+               :src      => 'dist/mmeta-runtime.jar'
     manifest do
-      attribute :name=>"Main-Class", :value=>"mmeta.MMetaCompiler"
+      attribute :name => "Main-Class", :value => "mmeta.MMetaCompiler"
     end
   end
 end
@@ -59,14 +63,23 @@ namespace :test do
   task :compile => ['dist/mmeta.jar', 'build/test', 'build/test/MirahLexer.java']
   file 'build/test/MirahLexer.java' => ['test/MirahLexer.java', 'test/Tokens.java'] do
     cp "test/MirahLexer.java", "build/test/"
-    cp "test/Tokens.java", "build/test/"
-    ant.javac :srcDir => 'build/test', :classpath=>'dist/mmeta-runtime.jar', :debug=>true
-    mirahc 'test', :dir=>'build', :dest=>'build',
-        :options=>['--classpath', "dist/mmeta-runtime.jar:#{Dir.pwd}/build"]
+    cp "test/Tokens.java",     "build/test/"
+    ant.javac :srcDir    => 'build/test',
+              :classpath => 'dist/mmeta-runtime.jar',
+              :debug     => true
+    mirahc 'test', 
+           :dir=>'build',
+           :dest=>'build',
+           :options=>[
+             '--classpath', "dist/mmeta-runtime.jar:#{Dir.pwd}/build"
+           ]
   end
   task :calc => :'test:compile' do
-    runjava('test.Calculator2', '4 * 3 - 2', :outputproperty=>'test.output2',
-            :classpath=>'dist/mmeta-runtime.jar:build', :failonerror=>false)
+    runjava('test.Calculator2',
+            '4 * 3 - 2',
+            :outputproperty => 'test.output2',
+            :classpath      => 'dist/mmeta-runtime.jar:build',
+            :failonerror    => false)
     if ant.properties['test.output2'].to_s.strip == '10'
       puts "Mirah Calculator passed"
     else
