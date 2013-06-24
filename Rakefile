@@ -1,9 +1,7 @@
+require 'bundler/setup'
 require 'ant'
 require 'rake/testtask'
 
-if File.exist?('../mirah/lib/mirah_task.rb')
-  $:.unshift '../mirah/lib'
-end
 require 'mirah_task'
 
 task :default => :test
