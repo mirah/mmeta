@@ -349,6 +349,7 @@ public parser MMetaCompiler {
       end
       @dict.setVariable(:PARSER, @name)
       @dict.setVariable(:SUPERCLASS, @sname)
+      @dict.setVariable(:JPACKAGE, @jpackage)
       List(xs).each do |expr|
         @dict = dict.addSection(:BODY)
         add_expr(:BODY, expr)
