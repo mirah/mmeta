@@ -22,7 +22,6 @@ class MMetaParser < BaseParser
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
@@ -37,7 +36,7 @@ class MMetaParser < BaseParser
 
   
   def fromTo(x:String, y:String)
-    #throws RuleFailure
+    
     begin
       _start = _pos
       begin
@@ -87,7 +86,7 @@ class MMetaParser < BaseParser
 
   
   def sp
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.sp")
@@ -123,7 +122,7 @@ class MMetaParser < BaseParser
 
   
   def ws
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.ws")
@@ -162,7 +161,7 @@ class MMetaParser < BaseParser
 
   
   def listOf(e:String, s:String)
-    #throws RuleFailure
+    
     begin
       _start = _pos; f = nil; rs = nil
       begin
@@ -225,7 +224,7 @@ class MMetaParser < BaseParser
 
   
   def nameFirst
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.nameFirst")
@@ -258,7 +257,7 @@ class MMetaParser < BaseParser
 
   
   def nameRest
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.nameRest")
@@ -286,7 +285,7 @@ class MMetaParser < BaseParser
 
   
   def name
-    #throws RuleFailure
+    
     begin
       _start = _pos; f = nil; rs = nil
       _t = _sretrieve("MMetaParser.name")
@@ -337,7 +336,7 @@ class MMetaParser < BaseParser
 
   
   def rulename
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.rulename")
@@ -385,7 +384,7 @@ class MMetaParser < BaseParser
 
   
   def varname
-    #throws RuleFailure
+    
     begin
       _start = _pos; p = nil; n = nil
       _t = _sretrieve("MMetaParser.varname")
@@ -432,7 +431,7 @@ class MMetaParser < BaseParser
 
   
   def hex
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.hex")
@@ -456,7 +455,7 @@ class MMetaParser < BaseParser
 
   
   def echar
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       _t = _sretrieve("MMetaParser.echar")
@@ -515,7 +514,7 @@ class MMetaParser < BaseParser
 
   
   def tsString
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.tsString")
@@ -596,7 +595,7 @@ class MMetaParser < BaseParser
 
   
   def dollar
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil; n = nil
       _t = _sretrieve("MMetaParser.dollar")
@@ -675,7 +674,7 @@ class MMetaParser < BaseParser
 
   
   def dollarstring
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.dollarstring")
@@ -760,7 +759,7 @@ class MMetaParser < BaseParser
 
   
   def string
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil
       _t = _sretrieve("MMetaParser.string")
@@ -795,7 +794,7 @@ class MMetaParser < BaseParser
 
   
   def number
-    #throws RuleFailure
+    
     begin
       _start = _pos; sign = nil; ds = nil
       _t = _sretrieve("MMetaParser.number")
@@ -863,7 +862,7 @@ class MMetaParser < BaseParser
 
   
   def symbol
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil; c = nil
       _t = _sretrieve("MMetaParser.symbol")
@@ -977,7 +976,7 @@ class MMetaParser < BaseParser
 
   
   def k(keyword:String)
-    #throws RuleFailure
+    
     begin
       _start = _pos
       begin
@@ -1011,7 +1010,7 @@ class MMetaParser < BaseParser
 
   
   def error
-    #throws RuleFailure
+    
     begin
       _start = _pos; msg = nil; b = nil
       _t = _sretrieve("MMetaParser.error")
@@ -1060,7 +1059,7 @@ class MMetaParser < BaseParser
 
   
   def any
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.any")
@@ -1098,7 +1097,7 @@ class MMetaParser < BaseParser
 
   
   def wsdot
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.wsdot")
@@ -1136,7 +1135,7 @@ class MMetaParser < BaseParser
 
   
   def args
-    #throws RuleFailure
+    
     begin
       _start = _pos; as = nil
       _t = _sretrieve("MMetaParser.args")
@@ -1209,7 +1208,7 @@ class MMetaParser < BaseParser
 
   
   def application
-    #throws RuleFailure
+    
     begin
       _start = _pos; r = nil; as = nil
       _t = _sretrieve("MMetaParser.application")
@@ -1283,7 +1282,7 @@ class MMetaParser < BaseParser
 
   
   def fname
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil; t = nil; n = nil
       _t = _sretrieve("MMetaParser.fname")
@@ -1349,7 +1348,7 @@ class MMetaParser < BaseParser
 
   
   def parens
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaParser.parens")
@@ -1427,7 +1426,7 @@ class MMetaParser < BaseParser
 
   
   def dotted_name
-    #throws RuleFailure
+    
     begin
       _start = _pos; h = nil; t = nil; l = nil
       _t = _sretrieve("MMetaParser.dotted_name")
@@ -1498,7 +1497,7 @@ class MMetaParser < BaseParser
 
   
   def rewrite_expr
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; p = nil; c = nil; cl = nil; s = nil; xs = nil
       _t = _sretrieve("MMetaParser.rewrite_expr")
@@ -1723,7 +1722,7 @@ class MMetaParser < BaseParser
 
   
   def simplehost
-    #throws RuleFailure
+    
     begin
       _start = _pos; rs = nil; ls = nil; x = nil
       _t = _sretrieve("MMetaParser.simplehost")
@@ -1784,7 +1783,7 @@ class MMetaParser < BaseParser
 
   
   def simplehost1
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil; num = nil; s = nil; n = nil
       _t = _sretrieve("MMetaParser.simplehost1")
@@ -1933,7 +1932,7 @@ class MMetaParser < BaseParser
 
   
   def cbraces
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.cbraces")
@@ -2018,7 +2017,7 @@ class MMetaParser < BaseParser
 
   
   def semAction
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil; xs = nil
       _t = _sretrieve("MMetaParser.semAction")
@@ -2150,7 +2149,7 @@ class MMetaParser < BaseParser
 
   
   def semPred
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.semPred")
@@ -2220,7 +2219,7 @@ class MMetaParser < BaseParser
 
   
   def synPred
-    #throws RuleFailure
+    
     begin
       _start = _pos; p = nil; e = nil; t = nil
       _t = _sretrieve("MMetaParser.synPred")
@@ -2294,7 +2293,7 @@ class MMetaParser < BaseParser
 
   
   def synPredTail
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.synPredTail")
@@ -2337,7 +2336,7 @@ class MMetaParser < BaseParser
 
   
   def token
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil
       _t = _sretrieve("MMetaParser.token")
@@ -2378,7 +2377,7 @@ class MMetaParser < BaseParser
 
   
   def tokens
-    #throws RuleFailure
+    
     begin
       _start = _pos; a = nil; b = nil
       _t = _sretrieve("MMetaParser.tokens")
@@ -2436,7 +2435,7 @@ class MMetaParser < BaseParser
 
   
   def expr
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.expr")
@@ -2471,7 +2470,7 @@ class MMetaParser < BaseParser
 
   
   def expr4
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaParser.expr4")
@@ -2521,7 +2520,7 @@ class MMetaParser < BaseParser
 
   
   def optIter(x:Object)
-    #throws RuleFailure
+    
     begin
       _start = _pos
       begin
@@ -2597,7 +2596,7 @@ class MMetaParser < BaseParser
 
   
   def expr3
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; e = nil; x = nil
       _t = _sretrieve("MMetaParser.expr3")
@@ -2678,7 +2677,7 @@ class MMetaParser < BaseParser
 
   
   def expr2
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaParser.expr2")
@@ -2768,7 +2767,7 @@ class MMetaParser < BaseParser
 
   
   def expr1
-    #throws RuleFailure
+    
     begin
       _start = _pos; k = nil; x = nil
       _t = _sretrieve("MMetaParser.expr1")
@@ -2933,7 +2932,7 @@ class MMetaParser < BaseParser
 
   
   def annotation
-    #throws RuleFailure
+    
     begin
       _start = _pos; t = nil; l = nil; n = nil
       _t = _sretrieve("MMetaParser.annotation")
@@ -3100,7 +3099,7 @@ class MMetaParser < BaseParser
 
   
   def ruleArgs
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil
       _t = _sretrieve("MMetaParser.ruleArgs")
@@ -3180,7 +3179,7 @@ class MMetaParser < BaseParser
 
   
   def rule
-    #throws RuleFailure
+    
     begin
       _start = _pos; a = nil; n = nil; args = nil; x = nil
       _t = _sretrieve("MMetaParser.rule")
@@ -3267,7 +3266,7 @@ class MMetaParser < BaseParser
 
   
   def qualifiers
-    #throws RuleFailure
+    
     begin
       _start = _pos; qs = nil
       _t = _sretrieve("MMetaParser.qualifiers")
@@ -3379,7 +3378,7 @@ class MMetaParser < BaseParser
 
   
   def method
-    #throws RuleFailure
+    
     begin
       _start = _pos; m = nil; s = nil; n = nil; as = nil; returntypeopt = nil; bs = nil
       _t = _sretrieve("MMetaParser.method")
@@ -3600,7 +3599,7 @@ class MMetaParser < BaseParser
 
   
   def jimport
-    #throws RuleFailure
+    
     begin
       _start = _pos; stm = nil; xs = nil
       _t = _sretrieve("MMetaParser.jimport")
@@ -3687,7 +3686,7 @@ class MMetaParser < BaseParser
 
   
   def jpackage
-    #throws RuleFailure
+    
     begin
       _start = _pos; stm = nil; xs = nil
       _t = _sretrieve("MMetaParser.jpackage")
@@ -3774,7 +3773,7 @@ class MMetaParser < BaseParser
 
   
   def classdef
-    #throws RuleFailure
+    
     begin
       _start = _pos; q = nil; xs = nil; bs = nil
       _t = _sretrieve("MMetaParser.classdef")
@@ -3884,7 +3883,7 @@ class MMetaParser < BaseParser
 
   
   def ruleMethod
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.ruleMethod")
@@ -3930,7 +3929,7 @@ class MMetaParser < BaseParser
 
   
   def parser
-    #throws RuleFailure
+    
     begin
       _start = _pos; m = nil; n = nil; sn = nil; rs = nil; p = nil
       _t = _sretrieve("MMetaParser.parser")
@@ -4075,7 +4074,7 @@ class MMetaParser < BaseParser
 
   
   def line
-    #throws RuleFailure
+    
     begin
       _start = _pos; p = nil; l = nil
       _t = _sretrieve("MMetaParser.line")
@@ -4125,7 +4124,7 @@ class MMetaParser < BaseParser
 
   
   def file
-    #throws RuleFailure
+    
     begin
       _start = _pos; ls = nil
       _t = _sretrieve("MMetaParser.file")
@@ -4177,7 +4176,7 @@ class MMetaParser < BaseParser
 
   
   def start
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaParser.start")
@@ -4321,7 +4320,6 @@ class MMetaPass < BaseParser
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
@@ -4350,7 +4348,7 @@ class MMetaPass < BaseParser
 
   
   def setChanged
-    #throws RuleFailure
+    
     begin
       _start = _pos
       _t = _sretrieve("MMetaPass.setChanged")
@@ -4376,7 +4374,7 @@ class MMetaPass < BaseParser
 
   
   def destruct
-    #throws RuleFailure
+    
     begin
       _start = _pos; r = nil; x = nil
       _t = _sretrieve("MMetaPass.destruct")
@@ -4428,7 +4426,7 @@ class MMetaPass < BaseParser
 
   
   def trans
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.trans")
@@ -4474,7 +4472,7 @@ class MMetaPass < BaseParser
 
   
   def Or
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaPass.Or")
@@ -4520,7 +4518,7 @@ class MMetaPass < BaseParser
 
   
   def And
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaPass.And")
@@ -4566,7 +4564,7 @@ class MMetaPass < BaseParser
 
   
   def Not
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.Not")
@@ -4601,7 +4599,7 @@ class MMetaPass < BaseParser
 
   
   def Many
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.Many")
@@ -4636,7 +4634,7 @@ class MMetaPass < BaseParser
 
   
   def Many1
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.Many1")
@@ -4671,7 +4669,7 @@ class MMetaPass < BaseParser
 
   
   def Peek
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.Peek")
@@ -4706,7 +4704,7 @@ class MMetaPass < BaseParser
 
   
   def List
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       _t = _sretrieve("MMetaPass.List")
@@ -4741,7 +4739,7 @@ class MMetaPass < BaseParser
 
   
   def Set
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; x = nil
       _t = _sretrieve("MMetaPass.Set")
@@ -4779,7 +4777,7 @@ class MMetaPass < BaseParser
 
   
   def Rule
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; args = nil; x = nil; anno = nil
       _t = _sretrieve("MMetaPass.Rule")
@@ -4823,7 +4821,7 @@ class MMetaPass < BaseParser
 
   
   def SynPred
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       _t = _sretrieve("MMetaPass.SynPred")
@@ -4869,7 +4867,7 @@ class MMetaPass < BaseParser
 
   
   def Error
-    #throws RuleFailure
+    
     begin
       _start = _pos; m = nil; x = nil
       _t = _sretrieve("MMetaPass.Error")
@@ -4907,7 +4905,7 @@ class MMetaPass < BaseParser
 
   
   def start
-    #throws RuleFailure
+    
     begin
       _start = _pos; r = nil
       _t = _sretrieve("MMetaPass.start")
@@ -5034,7 +5032,6 @@ class MMetaAndOrOpt < MMetaPass
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
@@ -5042,7 +5039,7 @@ class MMetaAndOrOpt < MMetaPass
 
   
   def And
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil; xs = nil
       _t = _sretrieve("MMetaAndOrOpt.And")
@@ -5095,7 +5092,7 @@ class MMetaAndOrOpt < MMetaPass
 
   
   def Or
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil; xs = nil
       _t = _sretrieve("MMetaAndOrOpt.Or")
@@ -5148,7 +5145,7 @@ class MMetaAndOrOpt < MMetaPass
 
   
   def transInside(s:String)
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil; ys = nil; x = nil
       begin
@@ -5236,7 +5233,6 @@ class MMetaOptimizer < BaseParser
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
@@ -5244,7 +5240,7 @@ class MMetaOptimizer < BaseParser
 
   
   def optimizeGrammar
-    #throws RuleFailure
+    
     begin
       _start = _pos; p = nil; n = nil; sn = nil; rs = nil; x = nil
       _t = _sretrieve("MMetaOptimizer.optimizeGrammar")
@@ -5315,7 +5311,7 @@ class MMetaOptimizer < BaseParser
 
   
   def optimizeRule
-    #throws RuleFailure
+    
     begin
       _start = _pos; r = nil
       _t = _sretrieve("MMetaOptimizer.optimizeRule")

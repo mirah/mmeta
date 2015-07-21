@@ -35,7 +35,6 @@ class MMetaCompiler < BaseParser
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
@@ -191,7 +190,7 @@ class MMetaCompiler < BaseParser
 
   
   def destruct
-    #throws RuleFailure
+    
     begin
       _start = _pos; t = nil; r = nil
       begin
@@ -223,7 +222,7 @@ class MMetaCompiler < BaseParser
 
   
   def trans
-    #throws RuleFailure
+    
     __saved_dict = @dict
     begin
       _start = _pos; r = nil
@@ -257,7 +256,7 @@ class MMetaCompiler < BaseParser
 
   
   def HList
-    #throws RuleFailure
+    
     begin
       _start = _pos; ls = nil
       begin
@@ -300,7 +299,7 @@ class MMetaCompiler < BaseParser
 
   
   def HConcat
-    #throws RuleFailure
+    
     begin
       _start = _pos; l = nil; r = nil
       begin
@@ -327,7 +326,7 @@ class MMetaCompiler < BaseParser
 
   
   def HStr
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       begin
@@ -351,7 +350,7 @@ class MMetaCompiler < BaseParser
 
   
   def HLit
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       begin
@@ -375,7 +374,7 @@ class MMetaCompiler < BaseParser
 
   
   def Node
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; ls = nil
       begin
@@ -443,7 +442,7 @@ class MMetaCompiler < BaseParser
 
   
   def Error
-    #throws RuleFailure
+    
     begin
       _start = _pos; msg = nil; body = nil
       begin
@@ -477,7 +476,7 @@ class MMetaCompiler < BaseParser
 
   
   def Set
-    #throws RuleFailure
+    
     begin
       _start = _pos; n = nil; x = nil
       begin
@@ -512,7 +511,7 @@ class MMetaCompiler < BaseParser
 
   
   def Str
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil
       begin
@@ -538,7 +537,7 @@ class MMetaCompiler < BaseParser
 
   
   def Sym
-    #throws RuleFailure
+    
     begin
       _start = _pos; s = nil
       begin
@@ -562,7 +561,7 @@ class MMetaCompiler < BaseParser
 
   
   def App
-    #throws RuleFailure
+    
     begin
       _start = _pos; rule = nil; args = nil
       begin
@@ -638,7 +637,7 @@ class MMetaCompiler < BaseParser
 
   
   def Dot
-    #throws RuleFailure
+    
     begin
       _start = _pos
       "ws()"
@@ -651,7 +650,7 @@ class MMetaCompiler < BaseParser
 
   
   def SAct
-    #throws RuleFailure
+    
     begin
       _start = _pos; expr = nil
       begin
@@ -675,7 +674,7 @@ class MMetaCompiler < BaseParser
 
   
   def Act
-    #throws RuleFailure
+    
     begin
       _start = _pos; expr = nil
       begin
@@ -705,7 +704,7 @@ class MMetaCompiler < BaseParser
 
   
   def Pred
-    #throws RuleFailure
+    
     begin
       _start = _pos; expr = nil
       begin
@@ -737,7 +736,7 @@ class MMetaCompiler < BaseParser
 
   
   def SynPred
-    #throws RuleFailure
+    
     begin
       _start = _pos; pred = nil; body = nil; tail = nil
       begin
@@ -794,7 +793,7 @@ class MMetaCompiler < BaseParser
 
   
   def AToken
-    #throws RuleFailure
+    
     begin
       _start = _pos; name = nil
       begin
@@ -818,7 +817,7 @@ class MMetaCompiler < BaseParser
 
   
   def TokenRange
-    #throws RuleFailure
+    
     begin
       _start = _pos; first = nil; last = nil
       begin
@@ -854,7 +853,7 @@ class MMetaCompiler < BaseParser
 
   
   def TLit
-    #throws RuleFailure
+    
     begin
       _start = _pos; name = nil
       begin
@@ -885,7 +884,7 @@ class MMetaCompiler < BaseParser
 
   
   def Or
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       begin
@@ -940,7 +939,7 @@ class MMetaCompiler < BaseParser
 
   
   def And
-    #throws RuleFailure
+    
     begin
       _start = _pos; ts = nil
       begin
@@ -1006,7 +1005,7 @@ class MMetaCompiler < BaseParser
 
   
   def Many
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1032,7 +1031,7 @@ class MMetaCompiler < BaseParser
 
   
   def Many1
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1058,7 +1057,7 @@ class MMetaCompiler < BaseParser
 
   
   def Opt
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1088,7 +1087,7 @@ class MMetaCompiler < BaseParser
 
   
   def Not
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1118,7 +1117,7 @@ class MMetaCompiler < BaseParser
 
   
   def Peek
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1149,7 +1148,7 @@ class MMetaCompiler < BaseParser
 
   
   def List
-    #throws RuleFailure
+    
     begin
       _start = _pos; x = nil
       begin
@@ -1179,7 +1178,7 @@ class MMetaCompiler < BaseParser
 
   
   def Rule
-    #throws RuleFailure
+    
     begin
       _start = _pos; name = nil; args = nil; body = nil; annotations = nil
       begin
@@ -1268,7 +1267,7 @@ class MMetaCompiler < BaseParser
 
   
   def Parser
-    #throws RuleFailure
+    
     begin
       _start = _pos; p = nil; n = nil; s = nil; xs = nil
       begin
@@ -1333,7 +1332,7 @@ class MMetaCompiler < BaseParser
 
   
   def Method
-    #throws RuleFailure
+    
     begin
       _start = _pos; name = nil; args = nil; returntypeopt = nil; body = nil; ismacro = nil; c = nil
       begin
@@ -1394,7 +1393,7 @@ class MMetaCompiler < BaseParser
 
   
   def Field
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       begin
@@ -1418,7 +1417,7 @@ class MMetaCompiler < BaseParser
 
   
   def Package
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       begin
@@ -1444,7 +1443,7 @@ class MMetaCompiler < BaseParser
 
   
   def Import
-    #throws RuleFailure
+    
     begin
       _start = _pos; c = nil
       begin
@@ -1468,7 +1467,7 @@ class MMetaCompiler < BaseParser
 
   
   def Class
-    #throws RuleFailure
+    
     begin
       _start = _pos; q = nil; d = nil; c = nil
       begin
@@ -1498,7 +1497,7 @@ class MMetaCompiler < BaseParser
 
   
   def Line
-    #throws RuleFailure
+    
     begin
       _start = _pos; ws = nil; x = nil
       begin
@@ -1527,7 +1526,7 @@ class MMetaCompiler < BaseParser
 
   
   def File
-    #throws RuleFailure
+    
     begin
       _start = _pos; xs = nil
       begin
@@ -1575,7 +1574,7 @@ class MMetaCompiler < BaseParser
 
   
   def start
-    #throws RuleFailure
+    
     begin
       _start = _pos; r = nil
       begin
