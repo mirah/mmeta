@@ -359,10 +359,11 @@ public parser MMetaCompiler {
       b
     };
 
-    Method:  name=_ args=_ body=_ ismacro=_ {
+    Method:  name=_ args=_ returntypeopt=_ body=_ ismacro=_ {
                add_dict
                @dict.setVariable(:NAME, name.toString)
                @dict.setVariable(:ARGS, args.toString)
+               @dict.setVariable(:RETURNTYPEOPT, returntypeopt.toString)
                @dict.showSection(:MACRO) if ismacro
                add_expr(:BODY, body)
                render('method')

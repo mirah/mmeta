@@ -115,9 +115,9 @@ public parser MMetaParser {
     {
         join(qs, " ")
     } ;
-    method    : m=(k("macro").)? k("def") . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")"| {""})! ."{" bs=cbraces* "}"
+    method    : m=(k("macro").)? k("def") . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")" (returntypeopt=(":" name))?| {""})! ."{" bs=cbraces* "}"
     {
-        ["Method", "#{s}#{n}", "#{join(as)}", "#{join(bs)}", m]
+        ["Method", "#{s}#{n}", "#{join(as)}", "#{returntypeopt ? ":#{returntypeopt}" : ""}", "#{join(bs)}", m]
     }
     ;
     jimport   : stm=k("import") ! xs=(~oneOf(";\n") _)* ";"?
