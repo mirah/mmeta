@@ -80,7 +80,7 @@ public parser MMetaParser {
     synPredTail   : ."|" (synPred | expr4);
     token         : "$" n=name                                          { n };
     tokens        : a=token (.".." . b=token                            { [:TokenRange, a, b]}
-                            |                                           { [:Token, a]}
+                            |                                           { [:AToken, a]}
                             );
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;

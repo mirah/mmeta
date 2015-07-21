@@ -779,7 +779,7 @@ class MMetaCompiler < BaseParser
   
 
   
-  def Token
+  def AToken
     #throws RuleFailure
     begin
       _start = _pos; name = nil
@@ -796,7 +796,7 @@ class MMetaCompiler < BaseParser
         end
       end
     rescue RuleFailure => ex
-      ex.last = 'Token'
+      ex.last = 'AToken'
       raise ex
     end
   end
@@ -1736,7 +1736,7 @@ class MMetaCompiler < BaseParser
     return Act() if (r == "Act")
     return Pred() if (r == "Pred")
     return SynPred() if (r == "SynPred")
-    return Token() if (r == "Token")
+    return AToken() if (r == "AToken")
     return TokenRange() if (r == "TokenRange")
     return TLit() if (r == "TLit")
     return Or() if (r == "Or")
@@ -1778,7 +1778,7 @@ class MMetaCompiler < BaseParser
     return true if (r == "Act")
     return true if (r == "Pred")
     return true if (r == "SynPred")
-    return true if (r == "Token")
+    return true if (r == "AToken")
     return true if (r == "TokenRange")
     return true if (r == "TLit")
     return true if (r == "Or")

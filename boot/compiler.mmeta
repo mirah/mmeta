@@ -195,7 +195,7 @@ public parser MMetaCompiler {
       render('syn_pred')
     };
 
-    Token: name=_ {
+    AToken: name=_ {
       "_lex(Tokens.t#{name})"
     };
     TokenRange: first=_ last=_ {
