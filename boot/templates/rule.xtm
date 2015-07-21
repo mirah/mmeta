@@ -1,6 +1,6 @@
 
 def {{RULE}}{{ARGS}}{{#CAST}}:{{CAST}}{{/CAST}}
-  throws RuleFailure{{#DEBUG}}
+  #throws RuleFailure{{#DEBUG}}
   _enter('{{RULE}}'){{/DEBUG}}{{#SCOPE_VARS}}
   __saved_{{SIMPLE_NAME}} = {{NAME}}{{/SCOPE_VARS}}
   begin
