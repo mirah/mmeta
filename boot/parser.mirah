@@ -46,8 +46,8 @@ class MMetaParser < BaseParser
             as1 = ArrayList.new
             begin
               while true do
-                
-                _lj= begin
+                _li = Object(
+                  begin
                     _p0 = _pos
                     begin
                       begin  # not
@@ -64,7 +64,7 @@ class MMetaParser < BaseParser
                       raise ex
                     end
                   end
-                _li = Object(_lj)
+                )
                 as1.add(_li)
               end
             rescue RuleFailure; end
@@ -2411,7 +2411,7 @@ class MMetaParser < BaseParser
                   end
                 end
               rescue RuleFailure
-                ["Token", a]
+                ["AToken", a]
               end
             rescue RuleFailure => ex
               self._pos = _p142
