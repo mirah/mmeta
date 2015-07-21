@@ -8,7 +8,6 @@ class {{PARSER}} < {{SUPERCLASS}}
   end
 
   def _error(expected:String)
-    #throws RuleFailure
     @error.last = expected unless ''.equals(expected)
     raise @error
   end
