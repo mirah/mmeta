@@ -67,7 +67,7 @@ namespace :test do
     ant.javac :srcDir    => 'build/test',
               :classpath => 'dist/mmeta-runtime.jar',
               :debug     => true
-    mirahc 'test', 
+    mirahc 'build/test', 
            :dir=>'build',
            :dest=>'build',
            :options=>[
