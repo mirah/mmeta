@@ -39,7 +39,8 @@ class MMetaCompiler < BaseParser
   end
 
 
-  def self.main(args:String[]): void
+  def self.main(args:String[]):void
+    
           if args.length < 1
               puts "MMetaCompiler <input> [output]"
               System.exit(2)
