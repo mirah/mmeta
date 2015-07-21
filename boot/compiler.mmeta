@@ -9,8 +9,7 @@ import hapax.TemplateResourceLoader
 
 
 public parser MMetaCompiler {
-    def self.main(args:String[]) {
-      returns void
+    def self.main(args:String[]):void {
       if args.length < 1
           puts "MMetaCompiler <input> [output]"
           System.exit(2)
