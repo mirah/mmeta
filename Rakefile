@@ -19,8 +19,8 @@ end
 
 file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
   ENV['BS_CHECK_CLASSES'] = 'true'
-  mirahc('mmeta/ast.mirah', :dest => 'build/runtime')
-  ant.javac :srcDir=>'mmeta', :destDir=>'build/runtime', :debug=>true
+  mirahc('mmeta/ast.mirah', :dest => 'build/runtime', :options => ['--jvm', '1.5'])
+  ant.javac :srcDir=>'mmeta', :destDir=>'build/runtime', :debug=>true, :target => '1.5', :source => '1.5'
   ant.jar :destfile=>'dist/mmeta-runtime.jar', :basedir=>'build/runtime'
 end
 
@@ -29,7 +29,7 @@ file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/m
   mirahc('build/boot/mmeta/parser.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
-         :options => ['--classpath', 'dist/mmeta-runtime.jar'])
+         :options => ['--jvm', '1.5', '--classpath', 'dist/mmeta-runtime.jar'])
 end
 
 file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
@@ -38,7 +38,7 @@ file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/bo
          :dir  => 'build/boot',
          :dest => 'build/boot',
          :options => [
-           '--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'
+           '--jvm', '1.5', '--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'
   ])
 end
 
