@@ -107,7 +107,7 @@ class Ast < AbstractList; implements Cloneable
     @children.add(index - 1, child)
   end
 
-  def remove(index:int)
+  def remove(index:int):void # aid compiler in determining the return type. FIXME: Aiding the compiler should not be necessary here. 
     if index == 0
       raise IllegalArgumentException, "Can't remove child #{index}."
     end

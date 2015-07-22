@@ -524,7 +524,11 @@ public class BaseParser {
             return _error("'"+ s +"'");
         }
         for (int i = 0; i < s.length(); i++) {
-          if (s.charAt(i) != _chars[p++]) {
+          char c = _chars[p++];
+          if (c == '\n' /*|| (c == '\r' && _cpeek() != '\n')*/) {
+              note_newline(p);
+          }
+          if (s.charAt(i) != c) {
               _exit(ERROR);
               return _error("'"+ s +"'");
           }

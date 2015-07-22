@@ -716,8 +716,7 @@ parser MirahParser {
     return builder.toString
   }
 
-  def self.main(args:String[]) {
-      returns void
+  def self.main(args:String[]):void {
       parser = MirahParser.new
       code = parse_args(args)
       begin
