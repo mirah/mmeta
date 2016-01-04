@@ -60,17 +60,21 @@ file 'dist/mmeta.jar' => ['dist/mmeta-runtime.jar',
 end
 
 namespace :test do
-  task :compile => ['dist/mmeta.jar', 'build/test', 'build/test/MirahLexer.java']
-  file 'build/test/MirahLexer.java' => ['test/MirahLexer.java', 'test/Tokens.java'] do
+  task :compile => ['dist/mmeta.jar', 'build/test', 'build/test/MirahLexer.class']
+  file 'build/test/MirahLexer.class' => ['test/MirahLexer.java', 'test/Tokens.java'] do
+
     cp "test/MirahLexer.java", "build/test/"
     cp "test/Tokens.java",     "build/test/"
+
     ant.javac :srcDir    => 'build/test',
               :classpath => 'dist/mmeta-runtime.jar',
-              :debug     => true
-    mirahc 'test', 
-           :dir=>'build',
-           :dest=>'build',
-           :options=>[
+              :debug     => true,
+              :destDir => 'build'
+
+    mirahc 'build/test',
+           :dir     => 'build',
+           :dest    => 'build',
+           :options => [
              '--classpath', "dist/mmeta-runtime.jar:#{Dir.pwd}/build"
            ]
   end
@@ -91,10 +95,11 @@ namespace :test do
     t.libs << 'build/test'
     t.test_files = FileList['test/test_parser.rb']
   end
+  task :parser => ['test:compile']
 end
 
 def test_grammar(name, *options)
-  task('build/test/MirahLexer.java').enhance ["build/test/#{name}.mirah"]
+  task('build/test/MirahLexer.class').enhance ["build/test/#{name}.mirah"]
   file "build/test/#{name}.mirah" => ["test/#{name}.mmeta", 'dist/mmeta.jar', 'build/test'] do
     cp "test/#{name}.mmeta", "build/test/"
     args = ['dist/mmeta.jar', *options]
