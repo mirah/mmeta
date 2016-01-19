@@ -1,8 +1,8 @@
 package test;
 
 parser Calculator2 {
-    def self.main(args:String[]) {
-        returns void
+    def self.main(args:String[]): void {
+        # returns void
         parser = Calculator2.new
         # BaseParser.tracing = true
         ast = parser.parse(args[0])

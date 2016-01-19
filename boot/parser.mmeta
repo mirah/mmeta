@@ -80,7 +80,7 @@ public parser MMetaParser {
     synPredTail   : ."|" (synPred | expr4);
     token         : "$" n=name                                          { n };
     tokens        : a=token (.".." . b=token                            { [:TokenRange, a, b]}
-                            |                                           { [:Token, a]}
+                            |                                           { [:AToken, a]}
                             );
 
     expr          : xs=listOf(:expr4,"|")                               { [:Or]  + xs  } ;
@@ -115,9 +115,9 @@ public parser MMetaParser {
     {
         join(qs, " ")
     } ;
-    method    : m=(k("macro").)? k("def") . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")"| {""})! ."{" bs=cbraces* "}"
+    method    : m=(k("macro").)? k("def") . s=("self." | {""})! n=name! (."(" as=(~")" _)* ")" r=(k(":").name)?| {""})! ."{" bs=cbraces* "}"
     {
-        ["Method", "#{s}#{n}", "#{join(as)}", "#{join(bs)}", m]
+        ["Method", "#{s}#{n}", "#{join(as)}", "#{join(bs)}", m, r]
     }
     ;
     jimport   : stm=k("import") ! xs=(~oneOf(";\n") _)* ";"?

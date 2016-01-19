@@ -19,7 +19,7 @@ class Position; implements Serializable
     end
 
     def toString
-        "(line: #{line}, char: #{col})"
+      "(line: #{line}, char: #{col})"
     end
 
     def filename
@@ -107,7 +107,7 @@ class Ast < AbstractList; implements Cloneable
     @children.add(index - 1, child)
   end
 
-  def remove(index:int)
+  def remove(index:int): void # TODO shouldn't have to say void explicitly here.
     if index == 0
       raise IllegalArgumentException, "Can't remove child #{index}."
     end

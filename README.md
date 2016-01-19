@@ -166,7 +166,7 @@ this parser, or the first.
 // this parser will turn into: `class Calculator < BaseParser; ...`
 parser Calculator {
     // defining a mirah method
-    def self.main(args:String) {
+    def self.main(args:String): void {
         ast = Calculator.new.parse(args[0])
         puts Interpreter.new.parse(ast)
     }

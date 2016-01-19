@@ -717,7 +717,7 @@ parser MirahParser {
   }
 
   def self.main(args:String[]) {
-      returns void
+      #returns void
       parser = MirahParser.new
       code = parse_args(args)
       begin

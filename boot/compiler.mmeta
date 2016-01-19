@@ -9,8 +9,7 @@ import hapax.TemplateResourceLoader
 
 
 public parser MMetaCompiler {
-    def self.main(args:String[]) {
-      returns void
+    def self.main(args:String[]): void {
       if args.length < 1
           puts "MMetaCompiler <input> [output]"
           System.exit(2)
@@ -195,7 +194,7 @@ public parser MMetaCompiler {
       render('syn_pred')
     };
 
-    Token: name=_ {
+    AToken: name=_ {
       "_lex(Tokens.t#{name})"
     };
     TokenRange: first=_ last=_ {
@@ -358,10 +357,13 @@ public parser MMetaCompiler {
       b
     };
 
-    Method:  name=_ args=_ body=_ ismacro=_ {
+    Method:  name=_ args=_ body=_ ismacro=_ return_type=_ {
                add_dict
                @dict.setVariable(:NAME, name.toString)
                @dict.setVariable(:ARGS, args.toString)
+               if return_type
+                 @dict.setVariable(:RETURN_TYPE, return_type.toString)
+               end
                @dict.showSection(:MACRO) if ismacro
                add_expr(:BODY, body)
                render('method')
