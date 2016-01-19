@@ -26,7 +26,9 @@ class Memoize {
     public String toString() { return "at: "+ pos +" val: "+ val; }
 }
 
-/// Root parser object, all parsers will in the end extend BaseParser
+/**
+ * Root parser object, all parsers will in the end extend BaseParser.
+ */
 public class BaseParser {
     public BaseParser() {
         lines.put(0, 0);
@@ -38,11 +40,15 @@ public class BaseParser {
         }
     }
 
+    /**
+     * Prints a representation of the passed object.
+     */
     public static String print_r(Object o) {
         StringBuffer sb = new StringBuffer();
         print_r(o, sb);
         return sb.toString();
     }
+
     public static void print_r(Object o, StringBuffer sb) {
         if (o instanceof List) {
             sb.append("[");
@@ -62,6 +68,7 @@ public class BaseParser {
             sb.append(o);
         }
     }
+
     public void _enter(String label) {
       if (debug_parse_tree) {
         String parent = parseTree.peekLast();
