@@ -2,8 +2,6 @@ require 'bundler/setup'
 require 'ant'
 require 'rake/testtask'
 
-require 'mirah_task'
-
 task :default => :test
 task :jar => 'dist/mmeta.jar'
 
@@ -17,28 +15,28 @@ task :bootstrap => ['dist/mmeta.jar'] do
   runjava 'dist/mmeta.jar', 'boot/compiler.mmeta', 'boot/compiler.mirah'
 end
 
-file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runtime', 'dist'] do
+file 'dist/mmeta-runtime.jar' => Dir.glob('mmeta/*.{java,mirah}') + ['build/runtime', 'dist', 'javalib/mirahc-prev.jar'] do
   ENV['BS_CHECK_CLASSES'] = 'true'
   mirahc('mmeta/ast.mirah', :dest => 'build/runtime')
   ant.javac :srcDir=>'mmeta', :destDir=>'build/runtime', :debug=>true
   ant.jar :destfile=>'dist/mmeta-runtime.jar', :basedir=>'build/runtime'
 end
 
-file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
+file 'build/boot/mmeta/MMetaParser.class' => ['boot/parser.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar', 'javalib/mirahc-prev.jar' ] do
   cp 'boot/parser.mirah', 'build/boot/mmeta/'
-  mirahc('build/boot/mmeta/parser.mirah',
+  mirahc('mmeta/parser.mirah',
          :dir => 'build/boot',
          :dest => 'build/boot',
          :options => ['--classpath', 'dist/mmeta-runtime.jar'])
 end
 
-file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' ] do
+file 'build/boot/mmeta/MMetaCompiler.class' => ['boot/compiler.mirah', 'build/boot/mmeta', 'dist/mmeta-runtime.jar' , 'javalib/mirahc-prev.jar'] do
   cp 'boot/compiler.mirah', 'build/boot/mmeta/'
-  mirahc('build/boot/mmeta/compiler.mirah',
+  mirahc('mmeta/compiler.mirah',
          :dir  => 'build/boot',
          :dest => 'build/boot',
          :options => [
-           '--classpath', 'build/boot:dist/mmeta-runtime.jar:javalib/hapax-2.3.5-autoindent.jar'
+           '--classpath', "build/boot#{File::PATH_SEPARATOR}dist/mmeta-runtime.jar#{File::PATH_SEPARATOR}javalib/hapax-2.3.5-autoindent.jar"
   ])
 end
 
@@ -61,7 +59,7 @@ end
 
 namespace :test do
   task :compile => ['dist/mmeta.jar', 'build/test', 'build/test/MirahLexer.class']
-  file 'build/test/MirahLexer.class' => ['test/MirahLexer.java', 'test/Tokens.java'] do
+  file 'build/test/MirahLexer.class' => ['test/MirahLexer.java', 'test/Tokens.java', 'javalib/mirahc-prev.jar'] do
 
     cp "test/MirahLexer.java", "build/test/"
     cp "test/Tokens.java",     "build/test/"
@@ -71,18 +69,18 @@ namespace :test do
               :debug     => true,
               :destDir => 'build'
 
-    mirahc 'build/test',
+    mirahc 'test',
            :dir     => 'build',
            :dest    => 'build',
            :options => [
-             '--classpath', "dist/mmeta-runtime.jar:#{Dir.pwd}/build"
+             '--classpath', "dist/mmeta-runtime.jar#{File::PATH_SEPARATOR}build"
            ]
   end
   task :calc => :'test:compile' do
     runjava('test.Calculator2',
             '4 * 3 - 2',
             :outputproperty => 'test.output2',
-            :classpath      => 'dist/mmeta-runtime.jar:build',
+            :classpath      => "dist/mmeta-runtime.jar#{File::PATH_SEPARATOR}build",
             :failonerror    => false)
     if ant.properties['test.output2'].to_s.strip == '10'
       puts "Mirah Calculator passed"
@@ -124,6 +122,20 @@ directory 'build/mmeta'
 directory 'build/runtime'
 directory 'build/boot/mmeta'
 
+file_create 'javalib/mirahc-prev.jar' do
+  require 'open-uri'
+
+  url = ENV['MIRAH_PREV_PATH'] || 'https://search.maven.org/remotecontent?filepath=org/mirah/mirah/0.1.4/mirah-0.1.4.jar'
+
+  puts "Downloading mirahc-prev.jar from #{url}"
+
+  open(url, 'rb') do |src|
+    open('javalib/mirahc-prev.jar', 'wb') do |dest|
+      dest.write(src.read)
+    end
+  end
+end
+
 def runjava(jar, *args)
   options = {:failonerror => true, :fork => true}
   if jar =~ /\.jar$/
@@ -132,10 +144,28 @@ def runjava(jar, *args)
     options[:classname] = jar
   end
   options.merge!(args.pop) if args[-1].kind_of?(Hash)
-  puts "java #{jar} " + args.join(' ')
+  puts "java #{options} " + args.join(' ')
   ant.java options do
     args.each do |value|
       arg :value => value
     end
   end
+end
+
+def mirahc(source, options)
+  puts "calling mirahc #{source} #{options}"
+  args = []
+  if options[:dest]
+    args += ['-d', options[:dest]]
+  end
+  if options[:options]
+    args += options[:options]
+  end
+  if options[:dir]
+    args += [options[:dir]+'/'+source]
+  else
+    args += [source]
+  end
+
+  runjava 'javalib/mirahc-prev.jar', *args
 end
